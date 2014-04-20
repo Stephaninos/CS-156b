@@ -45,13 +45,13 @@ bool smartIteration(float & l,float &lastRMSE)
 		printf("***newRMSE > lastRMSE ; rollback; decrease learning rate\n");
 		memcpy(userSVD, userSVDT, sizeof(svd_entry)*USER_NUM);
 		memcpy(movieSVD, movieSVDT, sizeof(svd_entry)*MOVIE_NUM);
-		l *= 0.8;
+		l *= LEARNING_DEC;
 		lastRMSE = RMSEA(userSVD, movieSVD, valid_dataA, valid_sizeA);
 		return true;
 	}
 	else
 	{
-		l *= 1.005;
+		l *= LEARNING_INC;
 		if (lastRMSE - newRMSE < THRESHOLD)
 		{
 			lastRMSE = newRMSE;
@@ -84,9 +84,9 @@ void ChooseRate(float & l)
 	rmse = RMSEA(userSVD, movieSVD, valid_dataA, valid_sizeA);
 	
 	if (rmseUP < rmseDOWN && rmseUP < rmse)
-		l *= 1.5;
+		l *= LEARNING_UP;
 	if (rmseDOWN < rmseUP && rmseDOWN < rmse)
-			l /= 1.5;
+			l /= LEARNING_DOWN;
 	
 	memcpy(userSVD, userSVDTT, sizeof(svd_entry)*USER_NUM);
 	memcpy(movieSVD, movieSVDTT, sizeof(svd_entry)*MOVIE_NUM);
@@ -94,9 +94,13 @@ void ChooseRate(float & l)
 
 int main()
 {
-	FILE *f = fopen("log.csv", "wt");
-	int Niter = 10;
-	float l = 0.000015;
+	saveParam();
+	char name[1024];
+	strcpy(name, RUN_NAME);
+	strcat(name, ".log.csv");
+	FILE * f = fopen(name, "wt");
+	int Niter = ITERATION_NUM;
+	float l = LEARNING_RATE;
 	float rmse = 100;
 
 	timerStart(0);
@@ -119,7 +123,7 @@ int main()
 	printf("Temporary size is %d\n", train_sizeA);
 	timerStart(2);
 	printf("Valid RMSE: %.4f\n", rmse = RMSEA(userSVD, movieSVD, valid_dataA, valid_sizeA));
-	printf("Computing train RMSE takes %.4f", timerGetS(2));
+	printf("Computing train RMSE takes %.4f\n", timerGetS(2));
 	printf("Probe RMSE: %.4f\n", rmse = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA));
 
 	timerStart(2);
@@ -128,7 +132,7 @@ int main()
 		printf("\n\n#[%3d]  learning rate %.7f\n", i+1,l);
 		if (!smartIteration(l, rmse))break;
 		fprintf(f, "%d, %.7f\n", i + 1, rmse);
-		if ((i+1) % 30 == 0) ChooseRate(l);
+		if ((i+1) % TUNE_FREQ == 0) ChooseRate(l);
 		if ((i + 1) % 5 == 0) printf("---Probe RMSE: %.4f\n", RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA));
 	}
 	fclose(f);

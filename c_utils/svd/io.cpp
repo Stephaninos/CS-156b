@@ -94,3 +94,22 @@ void saveSVD(svd_entry* data, int size, char* filename)
 	fwrite(data, size*sizeof(svd_entry),1, f);
 	fclose(f);
 }
+
+
+void saveParam()
+{
+	char name[1024];
+	strcpy(name, RUN_NAME);
+	strcat(name, ".param");
+	FILE * f = fopen(name,"wt");
+	fprintf(f, "%s\n", RUN_COMMENT);
+	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
+	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);
+	fprintf(f, "REGULAR_M    :  %.8f\n", REGULARIZATION_CONST_M);
+	fprintf(f, "LEARNING_DEC :  %.8f\n", LEARNING_DEC);
+	fprintf(f, "LEARNING_INC :  %.8f\n", LEARNING_INC);
+	fprintf(f, "LEARNING_DWN :  %.8f\n", LEARNING_DOWN);
+	fprintf(f, "LEARNING_UP  :  %.8f\n", LEARNING_UP);
+	fprintf(f, "TUNE_FREQ    :  %d\n", TUNE_FREQ);
+	fclose(f);
+}

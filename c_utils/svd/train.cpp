@@ -79,19 +79,19 @@ void trainIterationA(svd_entry * users, svd_entry * movies, float l, data_entry*
 DWORD WINAPI featureThread(LPVOID param)
 {
 	float t, h = 0;
-	svd_entry *u, *m;
+	float *u, *m;
 	task p = *(task*)param;
 
 	for (int j = p.first; j <= p.last; j++)
 	{
 		for (int i = 0; i < SVD_dim; i++)
 		{
-			u = &p.users[p.data[j].user_ptr];
-			m = &p.movies[p.data[j].movie_ptr];
-			h = u->params[i];
+			u = &p.users[p.data[j].user_ptr].params[i];
+			m = &p.movies[p.data[j].movie_ptr].params[i];
+			h = *u;
 			t = p.temp[j];
-			u->params[i] += t*m->params[i] - REGULARIZATION_CONST_U*p.l*u->params[i];
-			m->params[i] += t*h - REGULARIZATION_CONST_M*p.l*m->params[i];
+			*u += t*(*m) - REGULARIZATION_CONST_U*p.l*(*u);
+			*m += t*h - REGULARIZATION_CONST_M*p.l*(*m);
 		}
 	}
 	return 0;
@@ -112,7 +112,7 @@ DWORD WINAPI errorThread(LPVOID param)
 void trainParallelIterationA(svd_entry * users, svd_entry * movies, float l, data_entry* trainset, float* temporary, int trainsize)
 {
 	float t, h = 0;
-	svd_entry *u, *m;
+	float *u, *m;
 	data_entry *tt;
 	timerStart(1);
 	DWORD tid[NUM_THREADS];
@@ -156,12 +156,12 @@ void trainParallelIterationA(svd_entry * users, svd_entry * movies, float l, dat
 	{
 		for (int i = 0; i < SVD_dim; i++)
 		{
-			u = &users[trainset[j].user_ptr];
-			m = &movies[trainset[j].movie_ptr];
-			h = u->params[i];
+			u = &users[trainset[j].user_ptr].params[i];
+			m = &movies[trainset[j].movie_ptr].params[i];
+			h = *u;
 			t = temporary[j];
-			u->params[i] += t*m->params[i] - REGULARIZATION_CONST_U*l*u->params[i];
-			m->params[i] += t*h - REGULARIZATION_CONST_M*l*m->params[i];
+			*u += t*(*m) - REGULARIZATION_CONST_U*l*(*u);
+			*m += t*h - REGULARIZATION_CONST_M*l*(*m);
 		}
 	}
 
@@ -183,11 +183,11 @@ void initSVD(svd_entry * users, svd_entry * movies)
 	{
 		for (int i = 0; i < USER_NUM; i++)
 		{
-			users[i].params[p] = 0.1;// *float(rand()) / RAND_MAX;
+			users[i].params[p] = 0.1*float(rand()) / RAND_MAX;
 		}
 		for (int i = 0; i < MOVIE_NUM; i++)
 		{
-			movies[i].params[p] = 0.1;// *float(rand()) / RAND_MAX;
+			movies[i].params[p] = 0.1*float(rand()) / RAND_MAX;
 		}
 	}
 }
