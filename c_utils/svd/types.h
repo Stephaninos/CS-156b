@@ -5,7 +5,11 @@
 #define MOVIE_NUM 17770
 
 #define MEAN_RATING 3.60861
-#define THRESHOLD 0.0001
+#define THRESHOLD 0
+#define NUM_THREADS 4
+
+#define REGULARIZATION_CONST_U 0.0001
+#define REGULARIZATION_CONST_M 0.0001
 
 struct file_entry
 {

@@ -6,8 +6,6 @@
 #include "types.h"
 #include "timer.h"
 
-#define NUM_THREADS 4
-
 struct task
 {
 	float l;
@@ -62,7 +60,7 @@ void trainIterationA(svd_entry * users, svd_entry * movies, float l, data_entry*
 		tt = &trainset[i];
 		temporary[i] = l*(tt->rating - predict(users, movies, tt->user_ptr, tt->movie_ptr));
 	}
-	printf("errors:%.3f\n", timerGetS(1));
+	printf("---errors:%.3f\n", timerGetS(1));
 	for (int i = 0; i < SVD_dim; i++)
 	{
 		timerStart(1);
@@ -75,15 +73,15 @@ void trainIterationA(svd_entry * users, svd_entry * movies, float l, data_entry*
 			u->params[i] +=  t*m->params[i];
 			m->params[i] += t*h;
 		}
-		//printf("time for feature %d : %.3f\n", i, timerGetS(1));
 	}
 }
 
-DWORD WINAPI errorThread(LPVOID param)
+DWORD WINAPI featureThread(LPVOID param)
 {
 	float t, h = 0;
 	svd_entry *u, *m;
 	task p = *(task*)param;
+
 	for (int j = p.first; j <= p.last; j++)
 	{
 		for (int i = 0; i < SVD_dim; i++)
@@ -92,14 +90,14 @@ DWORD WINAPI errorThread(LPVOID param)
 			m = &p.movies[p.data[j].movie_ptr];
 			h = u->params[i];
 			t = p.temp[j];
-			u->params[i] += t*m->params[i];
-			m->params[i] += t*h;
+			u->params[i] += t*m->params[i] - REGULARIZATION_CONST_U*p.l*u->params[i];
+			m->params[i] += t*h - REGULARIZATION_CONST_M*p.l*m->params[i];
 		}
 	}
 	return 0;
 }
 
-DWORD WINAPI featureThread(LPVOID param)
+DWORD WINAPI errorThread(LPVOID param)
 {
 	task t = *(task*)param;
 	data_entry *tt;
@@ -120,6 +118,7 @@ void trainParallelIterationA(svd_entry * users, svd_entry * movies, float l, dat
 	DWORD tid[NUM_THREADS];
 	task tsk[NUM_THREADS];
 	HANDLE thread[NUM_THREADS];
+
 	for (int i = 0; i < NUM_THREADS - 1; i++)
 	{
 		tsk[i].first = (trainsize / NUM_THREADS)*i;
@@ -131,26 +130,28 @@ void trainParallelIterationA(svd_entry * users, svd_entry * movies, float l, dat
 		tsk[i].movies = movies;
 		thread[i] = CreateThread(NULL, 0, errorThread, &tsk[i], 0, &tid[i]);
 	}
+
 	for (int i = (trainsize / NUM_THREADS)*(NUM_THREADS - 1); i < trainsize; i++)
 	{
 		tt = &trainset[i];
 		temporary[i] = l*(tt->rating - predict(users, movies, tt->user_ptr, tt->movie_ptr));
 	}
-	WaitForMultipleObjects(NUM_THREADS, thread, true, INFINITE);
-	printf("errors:%.3f\n", timerGetS(1));
 
-	timerStart(1);
+	WaitForMultipleObjects(NUM_THREADS, thread, true, INFINITE);
+
 	for (int i = 0; i < NUM_THREADS - 1; i++)
 	{
-		//tsk[i].first = (trainsize / NUM_THREADS)*i;
-		//tsk[i].last = (trainsize / NUM_THREADS)*(i + 1) - 1;
-		//tsk[i].data = trainset;
-		//tsk[i].temp = temporary;
-		//tsk[i].l = l;
-		//tsk[i].users = users;
-		//tsk[i].movies = movies;
+		CloseHandle(thread[i]);
+	}
+	printf("---errors:%.3f\n", timerGetS(1));
+	
+	timerStart(1);
+
+	for (int i = 0; i < NUM_THREADS - 1; i++)
+	{
 		thread[i] = CreateThread(NULL, 0, featureThread, &tsk[i], 0, &tid[i]);
 	}	
+
 	for (int j = (trainsize / NUM_THREADS)*(NUM_THREADS - 1); j < trainsize; j++)
 	{
 		for (int i = 0; i < SVD_dim; i++)
@@ -159,12 +160,20 @@ void trainParallelIterationA(svd_entry * users, svd_entry * movies, float l, dat
 			m = &movies[trainset[j].movie_ptr];
 			h = u->params[i];
 			t = temporary[j];
-			u->params[i] += t*m->params[i];
-			m->params[i] += t*h;
+			u->params[i] += t*m->params[i] - REGULARIZATION_CONST_U*l*u->params[i];
+			m->params[i] += t*h - REGULARIZATION_CONST_M*l*m->params[i];
 		}
 	}
+
 	WaitForMultipleObjects(NUM_THREADS, thread, true, INFINITE);
-	printf("features:%.3f\n", timerGetS(1));
+
+	for (int i = 0; i < NUM_THREADS - 1; i++)
+	{
+		CloseHandle(thread[i]);
+	}
+
+	printf("---features:%.3f\n", timerGetS(1));
+
 }
 
 void initSVD(svd_entry * users, svd_entry * movies)
@@ -174,11 +183,11 @@ void initSVD(svd_entry * users, svd_entry * movies)
 	{
 		for (int i = 0; i < USER_NUM; i++)
 		{
-			users[i].params[p] = 0.1*float(rand()) / RAND_MAX;
+			users[i].params[p] = 0.1;// *float(rand()) / RAND_MAX;
 		}
 		for (int i = 0; i < MOVIE_NUM; i++)
 		{
-			movies[i].params[p] = 0.1*float(rand()) / RAND_MAX;
+			movies[i].params[p] = 0.1;// *float(rand()) / RAND_MAX;
 		}
 	}
 }
