@@ -1,6 +1,6 @@
 #pragma once
 
-#define SVD_dim 100
+#define SVD_dim 40
 #define USER_NUM 458293
 #define MOVIE_NUM 17770
 
@@ -8,10 +8,10 @@
 #define THRESHOLD 0
 #define NUM_THREADS 4
 
-#define REGULARIZATION_CONST_U 0.0001
-#define REGULARIZATION_CONST_M 0.0001
+#define REGULARIZATION_CONST_U 0.000f
+#define REGULARIZATION_CONST_M 0.000f
 
-#define LEARNING_RATE 0.0001
+#define LEARNING_RATE 0.00005
 #define LEARNING_DEC 0.8
 #define LEARNING_INC 1.005
 
@@ -19,7 +19,7 @@
 #define LEARNING_DOWN 1.5
 #define TUNE_FREQ 30
 
-#define ITERATION_NUM 100
+#define ITERATION_NUM 10
 
 #define RUN_NAME "run4"
 

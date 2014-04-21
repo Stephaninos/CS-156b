@@ -6,8 +6,7 @@ int fillWithData(std::vector<data_entry>& list, char* file, int size);
 int fillWithDataA(data_entry* list, char* file, int size);
 int fillWithDataA(data_entry* list, char* file, int size, int type);
 void saveSVD(svd_entry*, int, char*);
-void saveParam(char * time);
-void saveRMSE(char * x, char* y, char* z, char * time);
+void saveParam();
 
 //void buildUserList(char * um);
 //void buildMovieList(char * um);

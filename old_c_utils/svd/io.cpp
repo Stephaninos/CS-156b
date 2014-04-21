@@ -36,7 +36,7 @@ int fillWithDataA(data_entry* list, char* file, int size)
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
 	file_entry c;
-	double total = 0;
+	double total;
 	int i = 0;
 	while (true)
 	{
@@ -64,7 +64,7 @@ int fillWithDataA(data_entry* list, char* file, int size, int type)
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
 	file_entry c;
-	double total = 0.;
+	double total;
 	int i = 0;
 	while (true)
 	{
@@ -96,35 +96,12 @@ void saveSVD(svd_entry* data, int size, char* filename)
 }
 
 
-void saveParam(char * time)
+void saveParam()
 {
 	char name[1024];
-	strcpy(name, time);
-	strcat(name, RUN_NAME);
+	strcpy(name, RUN_NAME);
 	strcat(name, ".param");
 	FILE * f = fopen(name,"wt");
-	fprintf(f, "%s\n", RUN_COMMENT);
-	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
-	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);
-	fprintf(f, "REGULAR_M    :  %.8f\n", REGULARIZATION_CONST_M);
-	fprintf(f, "LEARNING_DEC :  %.8f\n", LEARNING_DEC);
-	fprintf(f, "LEARNING_INC :  %.8f\n", LEARNING_INC);
-	fprintf(f, "LEARNING_DWN :  %.8f\n", LEARNING_DOWN);
-	fprintf(f, "LEARNING_UP  :  %.8f\n", LEARNING_UP);
-	fprintf(f, "TUNE_FREQ    :  %d\n", TUNE_FREQ);
-	fclose(f);
-}
-
-void saveRMSE(char * x, char* y, char* z, char * time)
-{
-	char name[1024];
-	strcpy(name, time);
-	strcat(name, ".param");
-	strcat(name, x);
-	strcat(name, y);
-	strcat(name, z);
-
-	FILE * f = fopen(name, "wt");
 	fprintf(f, "%s\n", RUN_COMMENT);
 	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
 	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);

@@ -5,10 +5,6 @@
 #include "timer.h"
 #include "train.h"
 
-#include <ctime>
-#include <cstring>
-#include <sstream>
-
 char * um_train = "../../um/all.dta.train";
 char * mu_train = "../../mu/all.dta.train";
 char * um_probe = "../../um/all.dta.probe";
@@ -98,7 +94,7 @@ void ChooseRate(float & l)
 
 int main()
 {
-
+	saveParam();
 	char name[1024];
 	strcpy(name, RUN_NAME);
 	strcat(name, ".log.csv");
@@ -142,27 +138,6 @@ int main()
 	fclose(f);
 	printf("\n\n------------------------\n\n");
 	printf("averate iteration time: %.3f\n", timerGetS(2) / Niter);
-	
-	std::time_t t = std::time(NULL);
-	char mbstr[100];
-	char mmbstr[100];
-
-	double validRMSE = RMSEA(userSVD, movieSVD, valid_dataA, probe_sizeA);
-	double probeRMSE = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA);
-
-	std::string str1 = std::to_string(validRMSE);
-	std::string str2 = std::to_string(probeRMSE);
-	strcpy(mbstr, str1.c_str());
-	strcat(mbstr, str2.c_str());
-	strcpy(mmbstr, str1.c_str());
-	strcat(mmbstr, str2.c_str());
-	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
-	std::strftime(mmbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
-	
-	char * usersvd = strcat(mbstr, "user.svd");	
-	char * moviesvd = strcat(mmbstr, "movie.svd");
-
-	saveSVD(userSVD, USER_NUM, usersvd);
-	saveSVD(movieSVD, MOVIE_NUM, moviesvd);
-
+	saveSVD(userSVD, USER_NUM, "user.svd");
+	saveSVD(userSVD, MOVIE_NUM, "movie.svd");
 }

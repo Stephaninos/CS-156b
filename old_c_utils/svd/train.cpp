@@ -27,27 +27,27 @@ static inline float predict(svd_entry * users, svd_entry * movies, unsigned int 
 	return s;
 }
 
-//void trainIteration(svd_entry * users, svd_entry * movies, float l, std::vector<data_entry>& trainset, std::vector<float>& temporary)
-//{
-//	float h = 0;
-//	timerStart(1);
-//	for (int i = 0; i < trainset.size(); i++)
-//	{
-//		temporary[i] = l*(trainset[i].rating - predict(users, movies, trainset[i].user_ptr, trainset[i].movie_ptr));
-//	}
-//	printf("errors:%.3f\n", timerGetS(1));
-//	for (int i = 0; i < SVD_dim; i++)
-//	{
-//		timerStart(1);
-//		for (int j = 0; j < trainset.size(); j++)
-//		{
-//			h = users[trainset[j].user_ptr].params[i];
-//			users[trainset[j].user_ptr].params[i] += temporary[j]*movies[trainset[j].movie_ptr].params[i];
-//			movies[trainset[j].movie_ptr].params[i] += temporary[j]*h;
-//		}
-//		printf("time for feature %d : %.3f\n", i, timerGetS(1));
-//	}
-//}
+void trainIteration(svd_entry * users, svd_entry * movies, float l, std::vector<data_entry>& trainset, std::vector<float>& temporary)
+{
+	float h = 0;
+	timerStart(1);
+	for (int i = 0; i < trainset.size(); i++)
+	{
+		temporary[i] = l*(trainset[i].rating - predict(users, movies, trainset[i].user_ptr, trainset[i].movie_ptr));
+	}
+	printf("errors:%.3f\n", timerGetS(1));
+	for (int i = 0; i < SVD_dim; i++)
+	{
+		timerStart(1);
+		for (int j = 0; j < trainset.size(); j++)
+		{
+			h = users[trainset[j].user_ptr].params[i];
+			users[trainset[j].user_ptr].params[i] += temporary[j]*movies[trainset[j].movie_ptr].params[i];
+			movies[trainset[j].movie_ptr].params[i] += temporary[j]*h;
+		}
+		printf("time for feature %d : %.3f\n", i, timerGetS(1));
+	}
+}
 
 void trainIterationA(svd_entry * users, svd_entry * movies, float l, data_entry* trainset, float* temporary, int trainsize)
 {

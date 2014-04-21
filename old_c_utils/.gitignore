@@ -1,0 +1,9 @@
+#ignore everything
+*.*
+#unignore code and solution files
+!*.sln
+!*.cpp
+!*.h
+!*.vcxproj
+#don't ignore me
+!*.gitignore
