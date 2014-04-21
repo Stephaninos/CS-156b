@@ -17,7 +17,7 @@ struct task
 	int last;
 };
 
-static inline float predict(svd_entry * users, svd_entry * movies, unsigned int a, unsigned int b)
+static inline float predict(svd_entry * users,	 svd_entry * movies, unsigned int a, unsigned int b)
 {
 	float s = 0;
 	for (int i = 0; i < SVD_dim; i++)
@@ -183,11 +183,11 @@ void initSVD(svd_entry * users, svd_entry * movies)
 	{
 		for (int i = 0; i < USER_NUM; i++)
 		{
-			users[i].params[p] = 0.1*float(rand()) / RAND_MAX;
+			users[i].params[p] = SEEDRANGE * float(rand()) / RAND_MAX;
 		}
 		for (int i = 0; i < MOVIE_NUM; i++)
 		{
-			movies[i].params[p] = 0.1*float(rand()) / RAND_MAX;
+			movies[i].params[p] = SEEDRANGE * float(rand()) / RAND_MAX;
 		}
 	}
 }

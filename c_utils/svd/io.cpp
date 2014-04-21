@@ -107,6 +107,7 @@ void saveParam(char * time)
 	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
 	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);
 	fprintf(f, "REGULAR_M    :  %.8f\n", REGULARIZATION_CONST_M);
+	fprintf(f, "SEEDRANGE    :  %.8f\n", SEEDRANGE);
 	fprintf(f, "LEARNING_DEC :  %.8f\n", LEARNING_DEC);
 	fprintf(f, "LEARNING_INC :  %.8f\n", LEARNING_INC);
 	fprintf(f, "LEARNING_DWN :  %.8f\n", LEARNING_DOWN);

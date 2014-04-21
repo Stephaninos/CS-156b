@@ -35,6 +35,32 @@ int probe_sizeA;
 data_entry* valid_dataA;
 int valid_sizeA;
 
+svd_entry userSVDB[USER_NUM];
+svd_entry movieSVDB[MOVIE_NUM];
+svd_entry *bestUserSVD;
+svd_entry *bestMovieSVD;
+float bestProbeRMSE = 100;
+
+void keepBestProbeRMSE(float newRMSE)
+{
+	if (newRMSE < bestProbeRMSE)
+	{
+		bestProbeRMSE = newRMSE;
+		bestUserSVD = userSVD;
+		bestMovieSVD = movieSVD;
+	}
+	else
+	{
+		if ((bestMovieSVD == movieSVD) && (bestUserSVD == userSVD))
+		{
+			memcpy(userSVDB, userSVDT, sizeof(svd_entry)*USER_NUM);
+			memcpy(movieSVDB, movieSVDT, sizeof(svd_entry)*MOVIE_NUM);
+			bestMovieSVD = movieSVDB;
+			bestUserSVD = userSVDB;
+		}
+	}
+}
+
 bool smartIteration(float & l,float &lastRMSE)
 {
 	float newRMSE;
@@ -99,14 +125,20 @@ void ChooseRate(float & l)
 int main()
 {
 
+	std::time_t t = std::time(NULL);
+	char mmmbstr[100];
+	std::strftime(mmmbstr, sizeof(mmmbstr), "%d-%m-%H%M", std::localtime(&t));
+
 	char name[1024];
-	strcpy(name, RUN_NAME);
+	strcpy(name, mmmbstr);
+	strcat(name, RUN_NAME);
 	strcat(name, ".log.csv");
 	FILE * f = fopen(name, "wt");
 	int Niter = ITERATION_NUM;
 	float l = LEARNING_RATE;
 	float rmse = 100;
-
+	float rmseprobe = 100;
+	
 	timerStart(0);
 
 	initSVD(userSVD, movieSVD);
@@ -124,18 +156,22 @@ int main()
 	valid_sizeA = fillWithDataA(valid_dataA, mu_train, 100000000, 2);
 	probe_sizeA = fillWithDataA(probe_dataA, mu_probe, 2000000);
 
+
+
 	printf("Temporary size is %d\n", train_sizeA);
 	timerStart(2);
 	printf("Valid RMSE: %.4f\n", rmse = RMSEA(userSVD, movieSVD, valid_dataA, valid_sizeA));
 	printf("Computing train RMSE takes %.4f\n", timerGetS(2));
-	printf("Probe RMSE: %.4f\n", rmse = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA));
+	printf("Probe RMSE: %.4f\n", rmseprobe = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA));
 
 	timerStart(2);
 	for (int i = 0; i < Niter; i++)
 	{
 		printf("\n\n#[%3d]  learning rate %.7f\n", i+1,l);
 		if (!smartIteration(l, rmse))break;
-		fprintf(f, "%d, %.7f\n", i + 1, rmse);
+		rmseprobe = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA);
+		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse, rmseprobe);
+		keepBestProbeRMSE(rmseprobe);
 		if ((i+1) % TUNE_FREQ == 0) ChooseRate(l);
 		if ((i + 1) % 5 == 0) printf("---Probe RMSE: %.4f\n", RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA));
 	}
@@ -143,25 +179,27 @@ int main()
 	printf("\n\n------------------------\n\n");
 	printf("averate iteration time: %.3f\n", timerGetS(2) / Niter);
 	
-	std::time_t t = std::time(NULL);
-	char mbstr[100];
-	char mmbstr[100];
+	
 
 	double validRMSE = RMSEA(userSVD, movieSVD, valid_dataA, probe_sizeA);
 	double probeRMSE = RMSEA(userSVD, movieSVD, probe_dataA, probe_sizeA);
+	char mbstr[100];
+	char mmbstr[100];
+	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
+	std::strftime(mmbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
 
 	std::string str1 = std::to_string(validRMSE);
 	std::string str2 = std::to_string(probeRMSE);
-	strcpy(mbstr, str1.c_str());
+	strcat(mbstr, str1.c_str());
 	strcat(mbstr, str2.c_str());
-	strcpy(mmbstr, str1.c_str());
+	strcat(mmbstr, str1.c_str());
 	strcat(mmbstr, str2.c_str());
-	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
-	std::strftime(mmbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
+
 	
 	char * usersvd = strcat(mbstr, "user.svd");	
 	char * moviesvd = strcat(mmbstr, "movie.svd");
 
+	saveParam(mmbstr);
 	saveSVD(userSVD, USER_NUM, usersvd);
 	saveSVD(movieSVD, MOVIE_NUM, moviesvd);
 
