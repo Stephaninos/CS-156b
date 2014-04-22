@@ -3,6 +3,30 @@
 #include "types.h"
 #include "timer.h"
 
+static inline float predict(svd_entry * users, svd_entry * movies, unsigned int a, unsigned int b)
+{
+	float s = 0;
+	for (int i = 0; i < SVD_dim; i++)
+	{
+		s += users[a].params[i] * movies[b].params[i];
+	}
+	return s;
+}
+
+void dumpPred(svd_entry * users, svd_entry * movies, data_entry* testset, int size, char* filename)
+{
+	FILE * f = fopen(filename, "wt");
+	double p;
+	for (int i = 0; i < size; i++)
+	{
+		p = MEAN_RATING+predict(users, movies, testset[i].user_ptr, testset[i].movie_ptr);
+		if (p > 5)p = 5;
+		if (p < 1)p = 1;
+		fprintf(f, "%.5f\n", p);
+	}
+	fclose(f);
+}
+
 int fillWithData(std::vector<data_entry>& list, char* file, int size)
 {
 	timerStart(0);
@@ -36,7 +60,7 @@ int fillWithDataA(data_entry* list, char* file, int size)
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
 	file_entry c;
-	double total;
+	double total=0;
 	int i = 0;
 	while (true)
 	{
@@ -64,7 +88,7 @@ int fillWithDataA(data_entry* list, char* file, int size, int type)
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
 	file_entry c;
-	double total;
+	double total=0;
 	int i = 0;
 	while (true)
 	{
@@ -96,12 +120,34 @@ void saveSVD(svd_entry* data, int size, char* filename)
 }
 
 
+void readSVD(svd_entry* data, int size, char * filename)
+{
+	FILE *f = fopen(filename, "rb");
+	fread(data, size*sizeof(svd_entry), 1, f);
+	fclose(f);
+}
+
+void saveSVD2(model * svd, char* filename)
+{
+	FILE *f = fopen(filename, "wb");
+	fwrite(svd, sizeof(model), 1, f);
+	fclose(f);
+}
+
+
+void readSVD2(model * svd, char * filename)
+{
+	FILE *f = fopen(filename, "rb");
+	fread(svd, sizeof(model), 1, f);
+	fclose(f);
+}
+
 void saveParam()
 {
 	char name[1024];
 	strcpy(name, RUN_NAME);
 	strcat(name, ".param");
-	FILE * f = fopen(name,"wt");
+	FILE * f = fopen(name,"wt");//lol
 	fprintf(f, "%s\n", RUN_COMMENT);
 	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
 	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);
