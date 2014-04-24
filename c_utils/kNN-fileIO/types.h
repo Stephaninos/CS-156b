@@ -19,8 +19,13 @@
 #define REGULARIZATION_CONST_U 0.002f
 #define REGULARIZATION_CONST_M 0.002f
 
+#define REGULARIZATION_CONST_W 0.002f
+#define REGULARIZATION_CONST_C 0.002f
+
 #define LEARNING_RATE 0.0001
-#define B_LEARNING_RATIO 0.02
+
+#define B_LEARNING_RATIO 0.02 // 
+
 #define LEARNING_DEC 0.8
 #define LEARNING_INC 1.005
 #define SEEDRANGE 0.1
@@ -59,8 +64,10 @@ struct DataEntry
 struct UserStats
 {
 	unsigned short	allRatedMoviesByUserSize_N[USER_NUM];
+	unsigned short	invSqRootSizeN[USER_NUM];
 	unsigned short	allRatedMoviesByUser_N[TOTAL_NUM_RATINGS];
 	unsigned short	allRatedMoviesWithRatingByUserSize_R[USER_NUM];
+	unsigned short	invSqRootSizeR[USER_NUM];
 	unsigned short	allRatedMoviesWithRatingByUser_R[NUM_TRAIN_RATINGS];
 };
 
@@ -72,4 +79,4 @@ struct Model
 	float			m_baseline_C[NUMBER_OF_UNIQUE_WEIGHTS];
 };
 
-// Don't call RMSEA again in smartIteration, store value and restore
+// Don't call computeRMSE again in smartIteration, store value and restore

@@ -82,6 +82,7 @@ bool fillUserStats(char * filepath, UserStats *u){
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
 		(*u).allRatedMoviesByUserSize_N[i] = c;
+		(*u).invSqRootSizeN[i]			   = 1 / pow(c, 0.5);
 	};
 	for (int i = 0; i < TOTAL_NUM_RATINGS; i++){
 		fread(&c, 2, 1, m);
@@ -90,6 +91,7 @@ bool fillUserStats(char * filepath, UserStats *u){
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
 		(*u).allRatedMoviesWithRatingByUserSize_R[i] = c;
+		(*u).invSqRootSizeR[i]						 = 1 / pow(c, 0.5);
 		// if (i<100) printf("Read: %u \n", c);
 	};
 	for (int i = 0; i < NUM_TRAIN_RATINGS; i++){
