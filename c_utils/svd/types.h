@@ -1,6 +1,6 @@
 #pragma once
 
-#define SVD_dim 40
+#define SVD_dim 150
 #define USER_NUM 458293
 #define MOVIE_NUM 17770
 
@@ -22,9 +22,9 @@
 
 #define INIT_RANGE 0.05
 
-#define ITERATION_NUM 10
+#define ITERATION_NUM 1500
 
-#define RUN_NAME "run10"
+#define RUN_NAME "22-4-0001run1"
 
 #define RUN_COMMENT "random init [0,0.1]"
 

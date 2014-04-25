@@ -11,22 +11,15 @@
 #include <sstream>
 
 // Data
-//# parameters
-//# ==========
-//# processed files
-//# all.dta
-//# all.idx
-//# found 102416306 entries, out of which
-//# train 1 : 94362233
-//# train 2 : 1965045
-//# train 3 : 1964391
-//# train 6 : 0
-//# probe : 1374739
-//# test : 2749898
 
-char*		mu_all	 = "../../../um/all.dta.bin";
-char*		mu_train = "../../../um/all.dta.train";
+// char*		mu_all	 = "../../../um/all.dta.bin";
+// char*		mu_train = "../../../um/all.dta.train";
+
+
+char*		mu_all	 = "../../../um/all.dta.allbut1";
+char*		mu_train = "../../../um/all.dta.train23";
 char*		mu_probe = "../../../um/all.dta.probe";
+
 char*		out_file = "out_userstats.bin";
 
 DataEntry*	train_dataA;
@@ -77,12 +70,15 @@ float		bestProbeRMSE = 100;
 
 
 
+// Don't call computeRMSE again in smartIteration, store value and restore
 
-bool smartIteration(float & l, float &lastRMSE)
+bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastRMSE)
 {
 	float newRMSE;
+	float rmse_lastrun = lastRMSE;
+
 	timerStart(0);
-	memcpy(&mod_kNN_temp, &mod_kNN, sizeof(Model));
+	memcpy(mod_kNN_temp, mod_kNN, sizeof(Model));
 	
 	trainParallelIteration(mod_kNN,
 		u,
@@ -94,14 +90,14 @@ bool smartIteration(float & l, float &lastRMSE)
 		train_tempA,
 		train_sizeA);
 
-	printf("---The iteration took %.3f\n", timerGetS(0));
-	printf("---Valid RMSE: %.4f\n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsMatArray, train_dataA, train_sizeA, valid_dataA, valid_sizeA));
+	printf("---Skip learning -- The iteration took %.3f\n", timerGetS(0));
+	printf("---Valid RMSE: %.4f\n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_sizeA, valid_dataA, valid_sizeA));
 	if (newRMSE > lastRMSE || newRMSE != newRMSE)
 	{
 		printf("***newRMSE > lastRMSE ; rollback; decrease learning rate\n");
-		memcpy(&mod_kNN, &mod_kNN_temp, sizeof(Model));
+		memcpy(mod_kNN, mod_kNN_temp, sizeof(Model));
 		l *= LEARNING_DEC;
-		lastRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsMatArray, train_dataA, train_sizeA, valid_dataA, valid_sizeA);
+		lastRMSE = rmse_lastrun;
 		return true;
 	}
 	else
@@ -190,10 +186,12 @@ void main(){
 	// Only run this if userstats.bin is not there yet.
 	// countStatsAndWriteToFile(mu_all, out_file);
 	
+	char name_logfile[1024];
+
 	// Start time of run
 	std::time_t t = std::time(NULL);
 	char starttime[sizeof(t)];
-	std::strftime(starttime, sizeof(starttime), "%d-%m-%H%M", std::localtime(&t));
+	std::strftime(name_logfile, sizeof(starttime), "%d-%m-%H%M", std::localtime(&t));
 	
 	timerStart(0);
 
@@ -212,22 +210,28 @@ void main(){
 	getStartingPointsInMatArray(mat_startingPointsMatArray);
 
 	printf("Generating indices took %.10f\n", timerGetS(1));	
-
-	printf("Blank line read! Check: User 1: %u \n", (*u).allRatedMoviesByUser_N[(*u).allRatedMoviesByUserSize_N[0]]);
-
+		
 	///////////////////////////////////////////////////
 	//	Check counts
 	///////////////////////////////////////////////////
 /*
 	for (int i = 0; i < 100; i++){		
-		printf("User %u has %u ratings \n", i, (*u).allRatedMoviesByUserSize_N[i]);				
+		printf("sizeN[%u] = %u \n", i, (*u).allRatedMoviesByUserSize_N[i]);				
 	};
 
+	for (int i = 0; i < 100; i++){
+		printf("N[%u] = %u \n", i, (*u).allRatedMoviesByUser_N[i]);
+	};
+	
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);
 
 	for (int i = 0; i < 100; i++){
-		printf("User %u saw movie %u \n", i, (*u).allRatedMoviesWithRatingByUser_R[i]);
+		printf("sizeR[%u] = %u \n", i, (*u).allRatedMoviesWithRatingByUserSize_R[i]);
+	};
+
+	for (int i = 0; i < 100; i++){
+		printf("R[%u] = %u \n", i, (*u).allRatedMoviesWithRatingByUser_R[i]);
 	};
 
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
@@ -238,11 +242,10 @@ void main(){
 	///////////////////////////////////////////////////
 
 	// Save parameters
-	saveParam(starttime);
+	saveParam(&t);
 
 	// Start log file for RMSEs
-	char name_logfile[1024];
-	strcpy(name_logfile, starttime);
+	
 	strcat(name_logfile, RUN_NAME);
 	strcat(name_logfile, ".log.csv");
 	
@@ -255,8 +258,8 @@ void main(){
 	timerStart(0);
 	
 	// Initialize Model 
-	mod_kNN				= new Model;
-	mod_kNN_temp		= new Model;
+	mod_kNN					= new Model;
+	mod_kNN_temp			= new Model;
 	// mod_kNN_temp_temp	= new Model;
 	// mod_kNN_best_seen	= new Model;
 
@@ -266,24 +269,24 @@ void main(){
 	
 	printf("mod_kNN Initialization took %.3f\n", timerGetS(0));
 	
-	train_dataA = new DataEntry[TOTAL_NUM_RATINGS];
-	train_tempA = new float[TOTAL_NUM_RATINGS];
+	train_dataA = new DataEntry[NUM_TRAIN_RATINGS];
+	train_tempA = new float[NUM_TRAIN_RATINGS];
 	probe_dataA = new DataEntry[NUM_PROBE_RATINGS];
 	valid_dataA = new DataEntry[NUM_VALID_RATINGS];
 
-	train_sizeA = fillWithData(train_dataA, mu_train, NUM_TRAIN_RATINGS + NUM_VALID_RATINGS);
-	valid_sizeA = fillWithData(valid_dataA, mu_train, NUM_TRAIN_RATINGS + NUM_VALID_RATINGS, 2);
-	probe_sizeA = fillWithData(probe_dataA, mu_probe, NUM_PROBE_RATINGS);
+	train_sizeA = fillWithData(train_dataA, mu_train, 1, 3);
+	valid_sizeA = fillWithData(valid_dataA, mu_train, 2);
+	probe_sizeA = fillWithData(probe_dataA, mu_probe);
 	
 
-	printf("PARALLELIZE RMSE + UPDATE\n");
-
+	// Test predicts
 
 	printf("Temporary size is %d\n", train_sizeA);
 	timerStart(2);
 	printf("Valid RMSE: %.4f\n", rmse = computeRMSE(	mod_kNN, 
 												u, 
 												mat_startingPointsUM_R, 
+												mat_startingPointsUM_N,
 												mat_startingPointsMatArray, 
 												train_dataA, 
 												train_sizeA, 
@@ -293,26 +296,43 @@ void main(){
 	printf("Probe RMSE: %.4f\n",		computeRMSE(	mod_kNN, 
 												u, 
 												mat_startingPointsUM_R, 
+												mat_startingPointsUM_N,
 												mat_startingPointsMatArray, 
 												train_dataA, 
 												train_sizeA, 
 												probe_dataA, 
 												probe_sizeA));	
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
 
+	////////////////
+	// Training loop
+	////////////////
+	
 	timerStart(2);
 	for (int i = 0; i < Niter; i++)
 	{
 		printf("\n\n#[%3d]  learning rate %.7f\n", i + 1, l);
-		
+		printf("-----------Sanity check ratings---------------------\n");
+
+		int uu = 0;
+		int m; 
+		for (int i = 0; i < u->allRatedMoviesByUserSize_N[uu]; i++){
+			m = u->allRatedMoviesByUser_N[i];
+			printf("r[%u, %u] = %.4f: \n", uu, m, predict(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, uu, m, train_dataA));
+		}
+
+		std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+		std::cin.ignore(1);
+
+		printf("-------Call update methods-------------------------\n");
+
 		// Iteration
-		if (!smartIteration(l, rmse))break;
+		if (!smartIteration(mod_kNN, mod_kNN_temp, l, rmse))	break;
 		
 		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse, 
 			probermse = computeRMSE(mod_kNN,
 								u,
 								mat_startingPointsUM_R,
+								mat_startingPointsUM_N,
 								mat_startingPointsMatArray,
 								train_dataA,
 								train_sizeA,
@@ -334,10 +354,15 @@ void main(){
 	printf("\n\n------------------------\n\n");
 	printf("averate iteration time: %.3f\n", timerGetS(2) / Niter);
 
+
+	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);
+
 	// Write mod_kNN to file
 	double validRMSE = computeRMSE(mod_kNN,
 							u,
 							mat_startingPointsUM_R,
+							mat_startingPointsUM_N,
 							mat_startingPointsMatArray,
 							train_dataA,
 							train_sizeA,
@@ -346,6 +371,7 @@ void main(){
 	double probeRMSE = computeRMSE(mod_kNN,
 							u,
 							mat_startingPointsUM_R,
+							mat_startingPointsUM_N,
 							mat_startingPointsMatArray,
 							train_dataA,
 							train_sizeA,
@@ -353,7 +379,7 @@ void main(){
 							probe_sizeA);
 
 	char mbstr[100];
-	std::strftime(mbstr,	sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
+	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
 
 	std::string str1 = std::to_string(validRMSE);
 	std::string str2 = std::to_string(probeRMSE);
@@ -363,6 +389,10 @@ void main(){
 
 	save_kNN(mod_kNN, mbstr);
 	
+
+	std::cout << "FIN -- Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);
+
 	//	saveSVD2(bestSVD, "22-04-0001all-best.svd2");
 	
 	delete[] mat_startingPointsMatArray;
@@ -374,57 +404,3 @@ void main(){
 	delete[] valid_dataA;
 
 }
-
-
-
-//int main()
-//{
-//	saveParam();
-//	char name[1024];
-//	strcpy(name, RUN_NAME);
-//	strcat(name, ".log.csv");
-//	FILE * f = fopen(name, "wt");
-//	int Niter = ITERATION_NUM;
-//	float l = LEARNING_RATE;
-//	float rmse = 100;
-//	float probermse = 100;
-//
-//	timerStart(0);
-//
-//	init_mod_kNN(&SVD);
-//	memcpy(&SVDT, &SVD, sizeof(Model));
-//
-//	printf("SVD Initialization took %.3f\n", timerGetS(0));
-//
-//	train_dataA = new DataEntry[100000000];
-//	train_tempA = new float[100000000];
-//	probe_dataA = new DataEntry[2000000];
-//	valid_dataA = new DataEntry[2000000];
-//
-//	train_sizeA = fillWithData(train_dataA, mu_train, 100000000);
-//	valid_sizeA = fillWithData(valid_dataA, mu_train, 100000000, 2);
-//	probe_sizeA = fillWithData(probe_dataA, mu_probe, 2000000);
-//
-//	printf("Temporary size is %d\n", train_sizeA);
-//	timerStart(2);
-//	printf("Valid RMSE: %.4f\n", rmse = computeRMSE(&SVD, valid_dataA, valid_sizeA));
-//	printf("Computing train RMSE takes %.4f\n", timerGetS(2));
-//	printf("Probe RMSE: %.4f\n", computeRMSE(&SVD, probe_dataA, probe_sizeA));
-//
-//	timerStart(2);
-//	for (int i = 0; i < Niter; i++)
-//	{
-//		printf("\n\n#[%3d]  learning rate %.7f\n", i+1,l);
-//		if (!smartIteration(l, rmse))break;
-//		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse, probermse=computeRMSE(&SVD, probe_dataA, probe_sizeA));
-//		keepBestProbeRMSE(probermse);
-//		if ((i+1) % TUNE_FREQ == 0) ChooseRate(l);
-//		if ((i + 1) % 5 == 0) printf("---Probe RMSE: %.4f\n", probermse);
-//		printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
-//	}
-//	fclose(f);
-//	printf("\n\n------------------------\n\n");
-//	printf("averate iteration time: %.3f\n", timerGetS(2) / Niter);
-//	saveSVD2(&SVD, "22-04-0001all.svd2");
-//	saveSVD2(bestSVD, "22-04-0001all-best.svd2");
-//}

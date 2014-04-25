@@ -6,11 +6,12 @@ int countStatsAndWriteToFile(
 	char * mu_all, char * out_file);
 
 bool fillUserStats(char * filepath, UserStats *u);
-void saveParam(char * time);
+void saveParam(time_t * time);
 
 int fillWithData(std::vector<DataEntry>& list, char* file, int size);
-int fillWithData(DataEntry* list, char* file, int size);
-int fillWithData(DataEntry* list, char* file, int size, int type);
+int fillWithData(DataEntry* list, char* file);
+int fillWithData(DataEntry* list, char* file, int type);
+int fillWithData(DataEntry* list, char* file, int type1, int type2);
 
 void save_kNN(Model*, char*);
 void read_kNN(Model*, char*);

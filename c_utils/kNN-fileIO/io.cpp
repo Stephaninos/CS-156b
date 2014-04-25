@@ -3,6 +3,12 @@
 #include "types.h"
 #include "timer.h"
 
+
+#include <ctime>
+#include <cstring>
+#include <sstream>
+
+
 // USE with UM-file!! Only needed once to generate file with counting stats and ids
 int countStatsAndWriteToFile(
 	char * mu_all, char * out_file){
@@ -23,47 +29,59 @@ int countStatsAndWriteToFile(
 	
 	int i = 0;
 	int j = 0;
-			
+	int seenendofuser1 = 0;
+
 	while (true)
 	{
 		fread(&c, 10, 1, f);
-		if (feof(f) != 0) break;				
+		if (feof(f) != 0) break;
+			
+		// To not take the blank line at the end into account
+		if (seenendofuser1 == 1 && c.user == 1) break;
+		if (c.user == 2){				
+			seenendofuser1 = 1;
+		};
 
-		(*u).allRatedMoviesByUser_N[i]				= c.movie - 1;
+		(*u).allRatedMoviesByUser_N[i] = c.movie - 1;
 		(*u).allRatedMoviesByUserSize_N[c.user - 1] += 1;
-		
-		// if (c.user == 1) printf("N[%u] = %u \n", c.user - 1 + (*u).allRatedMoviesByUserSize_N[c.user - 1], (*u).allRatedMoviesByUser_N[c.user - 1 + (*u).allRatedMoviesByUserSize_N[c.user - 1]]);
-		if (c.user == 1) printf("Count is: %u \n", (*u).allRatedMoviesByUserSize_N[c.user - 1]);
-
+				
 		if (c.category == 1 || c.category == 3){
 			(*u).allRatedMoviesWithRatingByUser_R[j] = c.movie - 1;
 			(*u).allRatedMoviesWithRatingByUserSize_R[c.user - 1] += 1;
 			j++;
 		};
 
-		if (i % 1000000 == 0) printf("%.1f perc done \n", i/1000000.);
+		if (i % 1000000 == 0) printf("%.1f million lines done \n", i / 1000000.);
 
-		i++;		
+		i++;
 		
 	};
 
 	fclose(f);
-	//fclose(g);
-	//fclose(h);
 	
-	for (int j = 0; j < 200; j++) printf("User 1 saw movie: %u \n", (*u).allRatedMoviesByUser_N[j]);
-	for (int j = 0; j < 100; j++) printf("User %u saw %u movies \n", j, (*u).allRatedMoviesByUserSize_N[j]);
-
+	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);
+	
+	// Blabla
+	
+	for (int j = 0; j < 280; j++) printf("N: User saw movie: %u \n", (*u).allRatedMoviesByUser_N[j]);
+	
+	// printf("Last entry: %u", (*u).allRatedMoviesByUser_N[TOTAL_NUM_RATINGS-1]);
+	// for (int j = 0; j < 100; j++) printf("N: User %u saw %u movies \n", j, (*u).allRatedMoviesByUserSize_N[j]);
+	
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);
 
-	for (int j = 0; j < 200; j++) printf("User 1 saw movie: %u \n", (*u).allRatedMoviesWithRatingByUser_R[j]);
-	for (int j = 0; j < 100; j++) printf("User %u saw %u movies \n", j, (*u).allRatedMoviesWithRatingByUserSize_R[j]);
+	/*for (int j = 0; j < 200; j++) printf("R: User .  movie: %u \n", (*u).allRatedMoviesWithRatingByUser_R[j]);
+	for (int j = 0; j < 100; j++) printf("R: User %u saw %u movies \n", j, (*u).allRatedMoviesWithRatingByUserSize_R[j]);
 		
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
-
+	std::cin.ignore(1);*/
+	
 	printf("Reading took %.3f s\n", float(timerGet(0)) / 1000);
+	
+	// Write stuff
+	
 	printf("Now writing to file...\n");
 	
 	FILE * m = fopen(out_file, "wb");
@@ -78,26 +96,31 @@ int countStatsAndWriteToFile(
 
 bool fillUserStats(char * filepath, UserStats *u){
 	FILE * m = fopen(filepath, "rb");
+
 	unsigned short c;
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesByUserSize_N[i] = c;
+		(*u).allRatedMoviesByUserSize_N[i]	 = c;				
 		(*u).invSqRootSizeN[i]			   = 1 / pow(c, 0.5);
-	};
+	};	
+
+	fseek(m, sizeof(unsigned short) + USER_NUM*sizeof(float), SEEK_CUR);
+
 	for (int i = 0; i < TOTAL_NUM_RATINGS; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesByUser_N[i] = c;
+		(*u).allRatedMoviesByUser_N[i] = c;		
 	};
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
 		(*u).allRatedMoviesWithRatingByUserSize_R[i] = c;
-		(*u).invSqRootSizeR[i]						 = 1 / pow(c, 0.5);
-		// if (i<100) printf("Read: %u \n", c);
+		(*u).invSqRootSizeR[i]						 = 1 / pow(c, 0.5);	
 	};
+
+	fseek(m, sizeof(unsigned short) + USER_NUM*sizeof(float), SEEK_CUR);
+
 	for (int i = 0; i < NUM_TRAIN_RATINGS; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesWithRatingByUser_R[i] = c;
-		// if (i<100) printf("User %u rated movie %u \n", i, c);
+		(*u).allRatedMoviesWithRatingByUser_R[i] = c;	
 	};	
 	fclose(m);
 	return true;
@@ -159,7 +182,7 @@ bool fillUserStats(char * filepath, UserStats *u){
 //}
 
 
-int fillWithData(DataEntry* list, char* file, int size)
+int fillWithData(DataEntry* list, char* file)
 {
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
@@ -187,7 +210,7 @@ int fillWithData(DataEntry* list, char* file, int size)
 	return i;
 }
 
-int fillWithData(DataEntry* list, char* file, int size, int type)
+int fillWithData(DataEntry* list, char* file, int type)
 {
 	timerStart(0);
 	FILE * f = fopen(file, "rb");
@@ -199,6 +222,36 @@ int fillWithData(DataEntry* list, char* file, int size, int type)
 		fread(&c, 10, 1, f);
 		if (feof(f) != 0) break;
 		if (c.category != type) continue;
+		list[i].movie_ptr = c.movie - 1;
+		list[i].user_ptr = c.user - 1;
+		list[i].rating = c.rating - MEAN_RATING;
+		total += c.rating;
+		i++;
+	}
+	fclose(f);
+
+	printf("\n");
+	printf("Read from file %s\n", file);
+	printf("Found %d entries\n", i);
+	printf("Mean rating over the file is %.5lf\n", total / i);
+	printf("Reading took %.3f s\n", float(timerGet(0)) / 1000);
+	printf("\n");
+	return i;
+}
+
+
+int fillWithData(DataEntry* list, char* file, int type1, int type2)
+{
+	timerStart(0);
+	FILE * f = fopen(file, "rb");
+	FileEntry c;
+	double total = 0;
+	int i = 0;
+	while (true)
+	{
+		fread(&c, 10, 1, f);
+		if (feof(f) != 0) break;
+		if (c.category != type1 && c.category != type2 ) continue;
 		list[i].movie_ptr = c.movie - 1;
 		list[i].user_ptr = c.user - 1;
 		list[i].rating = c.rating - MEAN_RATING;
@@ -231,18 +284,19 @@ void read_kNN(Model * kNN, char * filename)
 }
 
 
-void saveParam(char * time)
+void saveParam(time_t * time)
 {
 	char name[1024];
-	strcpy(name, time);
+	std::strftime(name, sizeof(name), "%d-%m-%H%M", std::localtime(time));
 	strcat(name, RUN_NAME);
 	strcat(name, ".param");
 	FILE * f = fopen(name, "wt");
-	fprintf(f, "%s\n", RUN_COMMENT);
-	fprintf(f, "SVD_dim      :  %d\n", SVD_dim);
-	fprintf(f, "REGULAR_U    :  %.8f\n", REGULARIZATION_CONST_U);
-	fprintf(f, "REGULAR_M    :  %.8f\n", REGULARIZATION_CONST_M);
-	fprintf(f, "SEEDRANGE    :  %.8f\n", SEEDRANGE);
+	fprintf(f, "%s\n", RUN_COMMENT);	
+	fprintf(f, "REGULARIZATION_CONST_W    :  %.8f\n", REGULARIZATION_CONST_W);
+	fprintf(f, "REGULARIZATION_CONST_C    :  %.8f\n", REGULARIZATION_CONST_C);
+	fprintf(f, "SEEDRANGE_BIAS    :  %.8f\n", SEEDRANGE_BIAS);
+	fprintf(f, "SEEDRANGE_CORR    :  %.8f\n", SEEDRANGE_CORR);
+	fprintf(f, "SEEDRANGE_BASELINE    :  %.8f\n", SEEDRANGE_BASELINE);
 	fprintf(f, "LEARNING_DEC :  %.8f\n", LEARNING_DEC);
 	fprintf(f, "LEARNING_INC :  %.8f\n", LEARNING_INC);
 	fprintf(f, "LEARNING_DWN :  %.8f\n", LEARNING_DOWN);
