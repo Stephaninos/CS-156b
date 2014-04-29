@@ -6,6 +6,10 @@
 #include "timer.h"
 #include "train.h"
 
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include <ctime>
 #include <cstring>
 #include <sstream>
@@ -16,8 +20,11 @@
 // char*		mu_train = "../../../um/all.dta.train";
 
 
-char*		mu_all	 = "../../../um/all.dta.allbut1";
-char*		mu_train = "../../../um/all.dta.train23";
+// char*		mu_all	 = "../../../um/all.dta.allbut1";
+// char*		mu_train = "../../../um/all.dta.train23";
+
+char*		mu_all	 = "../../../um/all.dta.bin";
+char*		mu_train = "../../../um/all.dta.train123";
 char*		mu_probe = "../../../um/all.dta.probe";
 
 char*		out_file = "out_userstats.bin";
@@ -90,8 +97,10 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastR
 		train_tempA,
 		train_sizeA);
 
-	printf("---Skip learning -- The iteration took %.3f\n", timerGetS(0));
-	printf("---Valid RMSE: %.4f\n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_sizeA, valid_dataA, valid_sizeA));
+	printf("---The iteration took: %.3f\n", timerGetS(0));
+	printf("---\n");
+	printf("---Valid RMSE:      >> %.4f << \n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, valid_dataA, valid_sizeA));
+	printf("---\n");
 	if (newRMSE > lastRMSE || newRMSE != newRMSE)
 	{
 		printf("***newRMSE > lastRMSE ; rollback; decrease learning rate\n");
@@ -146,7 +155,7 @@ bool getStartingPointsInUM_R(unsigned int * mat, UserStats *u){
 	int sum = 0;
 	for (int k = 0; k < USER_NUM; k++){
 		mat[k] = sum;
-		sum += (*u).allRatedMoviesWithRatingByUserSize_R[k];
+		sum += (*u).nMovRated_R[k];
 	};
 	return 1;
 };
@@ -155,7 +164,7 @@ bool getStartingPointsInUM_N(unsigned int * mat, UserStats *u){
 	int sum = 0;
 	for (int k = 0; k < USER_NUM; k++){
 		mat[k] = sum;
-		sum += (*u).allRatedMoviesByUserSize_N[k];
+		sum += (*u).nMovSeen_N[k];
 	};
 	return 1;
 };
@@ -183,15 +192,30 @@ bool getStartingPointsInMatArray(unsigned int * mat){
 
 void main(){
 	
+
+	int tmpFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	// Turn On (OR) - Keep freed memory blocks in the
+	// heap's linked list and mark them as freed
+	tmpFlag |= _CRTDBG_DELAY_FREE_MEM_DF;
+
+	// Turn on memory checking at each heap operation
+	tmpFlag |= _CRTDBG_CHECK_ALWAYS_DF;
+
+	// Set the new state for the flag
+	_CrtSetDbgFlag(tmpFlag);
+
+
+
+
 	// Only run this if userstats.bin is not there yet.
 	// countStatsAndWriteToFile(mu_all, out_file);
 	
-	char name_logfile[1024];
+	
 
 	// Start time of run
 	std::time_t t = std::time(NULL);
 	char starttime[sizeof(t)];
-	std::strftime(name_logfile, sizeof(starttime), "%d-%m-%H%M", std::localtime(&t));
+	std::strftime(starttime, sizeof(starttime), "%d-%m-%H%M", std::localtime(&t));
 	
 	timerStart(0);
 
@@ -216,22 +240,22 @@ void main(){
 	///////////////////////////////////////////////////
 /*
 	for (int i = 0; i < 100; i++){		
-		printf("sizeN[%u] = %u \n", i, (*u).allRatedMoviesByUserSize_N[i]);				
+		printf("sizeN[%u] = %u \n", i, (*u).nMovSeen_N[i]);				
 	};
 
 	for (int i = 0; i < 100; i++){
-		printf("N[%u] = %u \n", i, (*u).allRatedMoviesByUser_N[i]);
+		printf("N[%u] = %u \n", i, (*u).idMovSeen_N[i]);
 	};
 	
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);
 
 	for (int i = 0; i < 100; i++){
-		printf("sizeR[%u] = %u \n", i, (*u).allRatedMoviesWithRatingByUserSize_R[i]);
+		printf("sizeR[%u] = %u \n", i, (*u).nMovRated_R[i]);
 	};
 
 	for (int i = 0; i < 100; i++){
-		printf("R[%u] = %u \n", i, (*u).allRatedMoviesWithRatingByUser_R[i]);
+		printf("R[%u] = %u \n", i, (*u).idMovRated_R[i]);
 	};
 
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
@@ -245,8 +269,8 @@ void main(){
 	saveParam(&t);
 
 	// Start log file for RMSEs
-	
-	strcat(name_logfile, RUN_NAME);
+	char name_logfile[1024];
+	strcpy(name_logfile, starttime);	
 	strcat(name_logfile, ".log.csv");
 	
 	FILE * f		= fopen(name_logfile, "wt");
@@ -283,23 +307,39 @@ void main(){
 
 	printf("Temporary size is %d\n", train_sizeA);
 	timerStart(2);
-	printf("Valid RMSE: %.4f\n", rmse = computeRMSE(	mod_kNN, 
+	printf("Valid RMSE:	         %.4f\n", rmse = computeRMSE(mod_kNN, 
 												u, 
 												mat_startingPointsUM_R, 
 												mat_startingPointsUM_N,
 												mat_startingPointsMatArray, 
 												train_dataA, 
-												train_sizeA, 
 												valid_dataA, 
 												valid_sizeA));
+
+	/*printf("Valid RMSE PARALLEL: %.4f\n", rmse = computeRmseParallel(
+												mod_kNN,
+												u,
+												mat_startingPointsUM_R,
+												mat_startingPointsUM_N,
+												mat_startingPointsMatArray, 
+												train_dataA,
+												valid_dataA,
+												valid_sizeA));
+*/
+
 	printf("Computing valid RMSE takes %.4f\n", timerGetS(2));
-	printf("Probe RMSE: %.4f\n",		computeRMSE(	mod_kNN, 
+
+
+/*
+	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);*/
+
+	printf("Probe RMSE:      %.4f\n", computeRMSE(mod_kNN, 
 												u, 
 												mat_startingPointsUM_R, 
 												mat_startingPointsUM_N,
 												mat_startingPointsMatArray, 
 												train_dataA, 
-												train_sizeA, 
 												probe_dataA, 
 												probe_sizeA));	
 
@@ -311,41 +351,60 @@ void main(){
 	for (int i = 0; i < Niter; i++)
 	{
 		printf("\n\n#[%3d]  learning rate %.7f\n", i + 1, l);
-		printf("-----------Sanity check ratings---------------------\n");
 
-		int uu = 0;
-		int m; 
-		for (int i = 0; i < u->allRatedMoviesByUserSize_N[uu]; i++){
-			m = u->allRatedMoviesByUser_N[i];
-			printf("r[%u, %u] = %.4f: \n", uu, m, predict(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, uu, m, train_dataA));
+		/*printf("-----------Sanity check ratings---------------------\n");
+
+		for (int uu = 0; uu < 3; uu++){
+		int m;
+		for (int i = 0; i < u->nMovRated_R[uu]; i++){
+		m = u->idMovRated_R[i];
+		printf("r[%u, %u] = %.8f \n", uu, m, MEAN_RATING + predict(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, uu, m, train_dataA));
 		}
+		}
+		*/
+		/*printf("W = ");
+		for (int ii = 0; ii < 5; ii++) printf("%.7f, ", mod_kNN->m_corr_W[ii]) ;
+		printf("\n\n");
 
-		std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-		std::cin.ignore(1);
+		printf("C = ");
+		for (int ii = 0; ii < 5; ii++) printf("%.7f, ", mod_kNN->m_baseline_C[ii]);
+		printf("\n\n");
 
-		printf("-------Call update methods-------------------------\n");
+		printf("bu = ");
+		for (int ii = 0; ii < 5; ii++) printf("%.5f, ", mod_kNN->v_bu[ii]);
+		printf("\n\n");
+
+		printf("bm = ");
+		for (int ii = 0; ii < 5; ii++) printf("%.5f, ", mod_kNN->v_bm[ii]);
+		printf("\n\n");*/
+
+		/*if (i % 10 == 0){
+			std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+			std::cin.ignore(1);
+			}*/
 
 		// Iteration
 		if (!smartIteration(mod_kNN, mod_kNN_temp, l, rmse))	break;
-		
-		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse, 
+
+		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse,
 			probermse = computeRMSE(mod_kNN,
-								u,
-								mat_startingPointsUM_R,
-								mat_startingPointsUM_N,
-								mat_startingPointsMatArray,
-								train_dataA,
-								train_sizeA,
-								probe_dataA,
-								probe_sizeA));
+			u,
+			mat_startingPointsUM_R,
+			mat_startingPointsUM_N,
+			mat_startingPointsMatArray,
+			train_dataA,
+			probe_dataA,
+			probe_sizeA));
 
 		// Clever adjusting learning rate
 		// keepBestProbeRMSE(probermse);
 		// if ((i+1) % TUNE_FREQ == 0) ChooseRate(l);
 
-		if ((i + 1) % 5 == 0) printf("---Probe RMSE: %.4f\n", probermse);
+		if ((i + 1) % 5 == 0) {
+			printf("---Probe RMSE:	    == %.4f ==\n", probermse);
+		}
 		
-		printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
+			printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
 	}
 
 	// Loop converged or we hit max iters
@@ -365,16 +424,18 @@ void main(){
 							mat_startingPointsUM_N,
 							mat_startingPointsMatArray,
 							train_dataA,
-							train_sizeA,
+							// train_sizeA,
 							valid_dataA,
 							valid_sizeA);
+
+
 	double probeRMSE = computeRMSE(mod_kNN,
 							u,
 							mat_startingPointsUM_R,
 							mat_startingPointsUM_N,
 							mat_startingPointsMatArray,
 							train_dataA,
-							train_sizeA,
+							// train_sizeA,
 							probe_dataA,
 							probe_sizeA);
 
@@ -402,5 +463,8 @@ void main(){
 	delete[] train_tempA;
 	delete[] probe_dataA;
 	delete[] valid_dataA;
+
+	_CrtDumpMemoryLeaks();
+
 
 }

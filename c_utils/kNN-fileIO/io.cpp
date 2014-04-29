@@ -24,8 +24,8 @@ int countStatsAndWriteToFile(
 	UserStats *u = new UserStats;
 		
 	unsigned short zeros[USER_NUM] = {};
-	memcpy((*u).allRatedMoviesByUserSize_N, zeros, sizeof(short) * USER_NUM);
-	memcpy((*u).allRatedMoviesWithRatingByUserSize_R, zeros, sizeof(short)* USER_NUM);
+	memcpy((*u).nMovSeen_N, zeros, sizeof(short) * USER_NUM);
+	memcpy((*u).nMovRated_R, zeros, sizeof(short)* USER_NUM);
 	
 	int i = 0;
 	int j = 0;
@@ -42,12 +42,12 @@ int countStatsAndWriteToFile(
 			seenendofuser1 = 1;
 		};
 
-		(*u).allRatedMoviesByUser_N[i] = c.movie - 1;
-		(*u).allRatedMoviesByUserSize_N[c.user - 1] += 1;
+		(*u).idMovSeen_N[i] = c.movie - 1;
+		(*u).nMovSeen_N[c.user - 1] += 1;
 				
 		if (c.category == 1 || c.category == 3){
-			(*u).allRatedMoviesWithRatingByUser_R[j] = c.movie - 1;
-			(*u).allRatedMoviesWithRatingByUserSize_R[c.user - 1] += 1;
+			(*u).idMovRated_R[j] = c.movie - 1;
+			(*u).nMovRated_R[c.user - 1] += 1;
 			j++;
 		};
 
@@ -64,16 +64,16 @@ int countStatsAndWriteToFile(
 	
 	// Blabla
 	
-	for (int j = 0; j < 280; j++) printf("N: User saw movie: %u \n", (*u).allRatedMoviesByUser_N[j]);
+	for (int j = 0; j < 280; j++) printf("N: User saw movie: %u \n", (*u).idMovSeen_N[j]);
 	
-	// printf("Last entry: %u", (*u).allRatedMoviesByUser_N[TOTAL_NUM_RATINGS-1]);
-	// for (int j = 0; j < 100; j++) printf("N: User %u saw %u movies \n", j, (*u).allRatedMoviesByUserSize_N[j]);
+	// printf("Last entry: %u", (*u).idMovSeen_N[TOTAL_NUM_RATINGS-1]);
+	// for (int j = 0; j < 100; j++) printf("N: User %u saw %u movies \n", j, (*u).nMovSeen_N[j]);
 	
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);
 
-	/*for (int j = 0; j < 200; j++) printf("R: User .  movie: %u \n", (*u).allRatedMoviesWithRatingByUser_R[j]);
-	for (int j = 0; j < 100; j++) printf("R: User %u saw %u movies \n", j, (*u).allRatedMoviesWithRatingByUserSize_R[j]);
+	/*for (int j = 0; j < 200; j++) printf("R: User .  movie: %u \n", (*u).idMovRated_R[j]);
+	for (int j = 0; j < 100; j++) printf("R: User %u saw %u movies \n", j, (*u).nMovRated_R[j]);
 		
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);*/
@@ -100,27 +100,37 @@ bool fillUserStats(char * filepath, UserStats *u){
 	unsigned short c;
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesByUserSize_N[i]	 = c;				
-		(*u).invSqRootSizeN[i]			   = 1 / pow(c, 0.5);
-	};	
+		(*u).nMovSeen_N[i] = c;
+		if (c > 0){
+			(*u).invSqRootSizeN[i] = 1 / pow(c, 0.5);
+		}
+		else{
+			(*u).invSqRootSizeN[i] = 1;
+		}
+	}
 
 	fseek(m, sizeof(unsigned short) + USER_NUM*sizeof(float), SEEK_CUR);
 
 	for (int i = 0; i < TOTAL_NUM_RATINGS; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesByUser_N[i] = c;		
+		(*u).idMovSeen_N[i] = c;		
 	};
 	for (int i = 0; i < USER_NUM; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesWithRatingByUserSize_R[i] = c;
-		(*u).invSqRootSizeR[i]						 = 1 / pow(c, 0.5);	
+		(*u).nMovRated_R[i] = c;
+		if (c>0){
+			(*u).invSqRootSizeR[i] = 1 / pow(c, 0.5);
+		}
+		else{
+			(*u).invSqRootSizeR[i] = 1;
+		}
 	};
 
 	fseek(m, sizeof(unsigned short) + USER_NUM*sizeof(float), SEEK_CUR);
 
 	for (int i = 0; i < NUM_TRAIN_RATINGS; i++){
 		fread(&c, 2, 1, m);
-		(*u).allRatedMoviesWithRatingByUser_R[i] = c;	
+		(*u).idMovRated_R[i] = c;	
 	};	
 	fclose(m);
 	return true;
@@ -335,8 +345,8 @@ void saveParam(time_t * time)
 //			break;
 //		};
 //
-//		(*u).allRatedMoviesByUser_N[i] = c.movie - 1;
-//		(*u).allRatedMoviesByUserSize_N[c.user - 1] += 1;
+//		(*u).idMovSeen_N[i] = c.movie - 1;
+//		(*u).nMovSeen_N[c.user - 1] += 1;
 //		i++;
 //		;
 //	}
@@ -346,7 +356,7 @@ void saveParam(time_t * time)
 //		break;
 //	};
 //
-//	(*u).allRatedMoviesByUser_N[i] = c.movie - 1;
-//	(*u).allRatedMoviesByUserSize_N[c.user - 1] += 1;
+//	(*u).idMovSeen_N[i] = c.movie - 1;
+//	(*u).nMovSeen_N[c.user - 1] += 1;
 //	i++;
 //}
