@@ -19,7 +19,6 @@ struct Task
 	int			first;
 	int			last;
 };
-
 struct TaskRmse
 {
 	UserStats*		u;
@@ -33,7 +32,6 @@ struct TaskRmse
 	int				last;
 	float*			sum2;
 };
-
 
 void init_mod_kNN(Model* mod_kNN)
 {
@@ -53,6 +51,8 @@ void init_mod_kNN(Model* mod_kNN)
 		mod_kNN->m_baseline_C[i] = SEEDRANGE_BASELINE*(2 * float(rand()) / RAND_MAX - 1);
 	}
 }
+
+// TODO make inline
 
 float predict(	Model * kNN, 
 								UserStats *u, 
@@ -101,7 +101,6 @@ float predict(	Model * kNN,
 	return s;
 }
 
-
 float computeRMSE(	Model * kNN, 
 					UserStats *u, 
 					unsigned int * sp_R, 
@@ -125,15 +124,14 @@ float computeRMSE(	Model * kNN,
 		
 		fclose(f);*/
 
-		float diff = testset[i].rating - p;
-		if (testset[i].user_ptr == 0) printf("%u, %u, %.3f, %.3f, %.3f \n",
-			testset[i].user_ptr, testset[i].movie_ptr, MEAN_RATING + testset[i].rating, MEAN_RATING + p, diff);
+		//float diff = testset[i].rating - p;
+		//if (testset[i].user_ptr == 0) printf("%u, %u, %.3f, %.3f, %.3f \n",
+		//	testset[i].user_ptr, testset[i].movie_ptr, MEAN_RATING + testset[i].rating, MEAN_RATING + p, diff);
 
 	}	
 	return sqrt(sum2 / testsize);
 }
 	
-
 DWORD WINAPI rmseThread(LPVOID param)
 {
 	// Do RMSE computation using thread input 'param', function returns a partial sum
@@ -238,7 +236,7 @@ DWORD WINAPI weightsThread(LPVOID param)
 	int movieID_j;
 
 	Task p = *(Task*)param;
-	float * mm = new float;
+	float * mm;
 	
 	for (int dp = p.first; dp <= p.last; dp++)
 	{	
@@ -258,7 +256,7 @@ DWORD WINAPI weightsThread(LPVOID param)
 				// Use UserStats to find all movies that user i rated
 
 				// First we find the k'th movie that userID_u rated 
-				pos = p.sp_R[movieID_i] + k;
+				pos = p.sp_R[userID_u] + k;
 				movieID_j = p.u->idMovRated_R[pos];
 
 				// Then we find the position of w_ij in the long array m_ccorr_W[] 
@@ -293,7 +291,7 @@ DWORD WINAPI weightsThread(LPVOID param)
 				// Use UserStats to find all movies that user i rated (including with unknown ratings)
 
 				// First we find the k'th movie that userID_u rated (including with unknown ratings)
-				pos = p.sp_N[movieID_i] + k;
+				pos = p.sp_N[userID_u] + k;
 				movieID_j = p.u->idMovSeen_N[pos];
 
 				// Then we find the position of w_ij in the long array m_ccorr_W[] 
@@ -325,12 +323,8 @@ DWORD WINAPI weightsThread(LPVOID param)
 		}
 	}
 
-	mm = NULL;
-	delete mm;
 	return 0;
 }
-
-
 
 DWORD WINAPI errorThread(LPVOID param)
 {
@@ -384,10 +378,12 @@ void trainParallelIteration(	Model* kNN,
 
 	for (int i = 0; i < NUM_THREADS - 1; i++)
 	{
+		if ((trainsize / NUM_THREADS)*(i + 1) - 1 > trainsize) tsk[i].last = trainsize - 1;
+
 		tsk[i].first	= (trainsize / NUM_THREADS)*i;
 		tsk[i].last		= (trainsize / NUM_THREADS)*(i + 1) - 1;
 		tsk[i].data		= trainset;
-		tsk[i].temp		= temporary;
+		tsk[i].temp		= temporary;	// errors computed
 		tsk[i].sp_R		= sp_R;
 		tsk[i].sp_N		= sp_N;
 		tsk[i].spMat	= spMatArray;

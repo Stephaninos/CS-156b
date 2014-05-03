@@ -15,8 +15,8 @@
 
 #define USER_NUM			458293
 #define MOVIE_NUM			17770
-#define TOTAL_NUM_RATINGS	102416306 
-#define NUM_TRAIN_RATINGS	96326624		// set with type = 1 or 3			// 1964391		// set with type = 3		
+#define TOTAL_NUM_RATINGS	102416306 // 5304175		// 102416306 
+#define NUM_TRAIN_RATINGS	1964391		// set with type = 3		// 96326624		// set with type = 1 or 3			//
 #define NUM_VALID_RATINGS	1965045		// set with type = 2
 #define NUM_PROBE_RATINGS	1374739
 
@@ -26,9 +26,9 @@
 #define FIXED_BIAS_SUBTRACTION 0
 
 
-#define SEEDRANGE_BIAS		0.05
-#define SEEDRANGE_CORR		0.01
-#define SEEDRANGE_BASELINE	0.01
+#define SEEDRANGE_BIAS		0.005
+#define SEEDRANGE_CORR		0.001
+#define SEEDRANGE_BASELINE	0.001
 
 #define MEAN_RATING			3.60856
 #define THRESHOLD			0

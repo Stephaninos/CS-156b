@@ -20,11 +20,11 @@
 // char*		mu_train = "../../../um/all.dta.train";
 
 
-// char*		mu_all	 = "../../../um/all.dta.allbut1";
-// char*		mu_train = "../../../um/all.dta.train23";
+char*		mu_all	 = "../../../um/all.dta.allbut1";
+char*		mu_train = "../../../um/all.dta.train23";
 
-char*		mu_all	 = "../../../um/all.dta.bin";
-char*		mu_train = "../../../um/all.dta.train123";
+//char*		mu_all	 = "../../../um/all.dta.bin";
+//char*		mu_train = "../../../um/all.dta.train123";
 char*		mu_probe = "../../../um/all.dta.probe";
 
 char*		out_file = "out_userstats.bin";
@@ -98,6 +98,9 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastR
 		train_sizeA);
 
 	printf("---The iteration took: %.3f\n", timerGetS(0));
+	printf("---\n");
+	printf("---Train RMSE:      >> %.4f << \n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_dataA, train_sizeA));
+
 	printf("---\n");
 	printf("---Valid RMSE:      >> %.4f << \n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, valid_dataA, valid_sizeA));
 	printf("---\n");
