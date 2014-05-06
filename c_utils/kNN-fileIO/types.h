@@ -15,20 +15,20 @@
 
 #define USER_NUM			458293
 #define MOVIE_NUM			17770
-#define TOTAL_NUM_RATINGS	102416306 // 5304175		// 102416306 
-#define NUM_TRAIN_RATINGS	1964391		// set with type = 3		// 96326624		// set with type = 1 or 3			//
+#define TOTAL_NUM_RATINGS	102416306	// 5304175	
+#define NUM_TRAIN_RATINGS	96326624	// 1964391 
 #define NUM_VALID_RATINGS	1965045		// set with type = 2
 #define NUM_PROBE_RATINGS	1374739
 
 // Nearest-neighbors parameters
-#define NUMBER_OF_UNIQUE_WEIGHTS 157877565 // 1/2 of off-diagnoal entries of 17770 x 17770 matrix
+#define NUMBER_OF_UNIQUE_WEIGHTS 315772900 
 
 #define FIXED_BIAS_SUBTRACTION 0
 
 
-#define SEEDRANGE_BIAS		0.005
-#define SEEDRANGE_CORR		0.001
-#define SEEDRANGE_BASELINE	0.001
+#define SEEDRANGE_BIAS		0.1
+#define SEEDRANGE_CORR		0.002
+#define SEEDRANGE_BASELINE	0.002
 
 #define MEAN_RATING			3.60856
 #define THRESHOLD			0
@@ -38,7 +38,7 @@
 #define REGULARIZATION_CONST_C 0.002f
 #define REGULARIZATION_CONST_B 0.002f
 
-#define LEARNING_RATE 0.0001
+#define LEARNING_RATE 0.000001
 
 #define LEARNING_DEC 0.9
 #define LEARNING_INC 1.1
@@ -47,7 +47,7 @@
 #define LEARNING_DOWN 1.5
 #define TUNE_FREQ 300000
 
-#define ITERATION_NUM 50
+#define ITERATION_NUM 70
 
 #define RUN_NAME "kNN"
 #define RUN_COMMENT "random init [0,0.1]"
@@ -88,4 +88,10 @@ struct Model
 	float			v_bm[MOVIE_NUM];
 	float			m_corr_W[NUMBER_OF_UNIQUE_WEIGHTS];
 	float			m_baseline_C[NUMBER_OF_UNIQUE_WEIGHTS];
+};
+
+struct Biases
+{
+	float			v_bu[USER_NUM];
+	float			v_bm[MOVIE_NUM];
 };

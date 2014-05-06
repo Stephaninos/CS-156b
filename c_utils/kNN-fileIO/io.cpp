@@ -293,6 +293,12 @@ void read_kNN(Model * kNN, char * filename)
 	fclose(f);
 }
 
+void read_biases(Biases * kNN, char * filename)
+{
+	FILE *f = fopen(filename, "rb");
+	fread(kNN, sizeof(Biases), 1, f);
+	fclose(f);
+}
 
 void saveParam(time_t * time)
 {

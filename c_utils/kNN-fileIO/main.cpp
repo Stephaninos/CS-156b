@@ -16,18 +16,19 @@
 
 // Data
 
-// char*		mu_all	 = "../../../um/all.dta.bin";
-// char*		mu_train = "../../../um/all.dta.train";
+// Just train on set 3
+//char*		mu_all	 = "../../../um/all.dta.allbut1";
+//char*		mu_train = "../../../um/all.dta.train23";
+//char*		mu_probe = "../../../um/all.dta.probe";
 
-
-char*		mu_all	 = "../../../um/all.dta.allbut1";
-char*		mu_train = "../../../um/all.dta.train23";
-
-//char*		mu_all	 = "../../../um/all.dta.bin";
-//char*		mu_train = "../../../um/all.dta.train123";
+// Full data set
+char*		mu_all	 = "../../../um/all.dta.bin";
+char*		mu_train = "../../../um/all.dta.train";
 char*		mu_probe = "../../../um/all.dta.probe";
 
 char*		out_file = "out_userstats.bin";
+
+char*		filepath_precomp_biases = "05-05-22130.9234690.995277allBESTSEEN.soln";
 
 DataEntry*	train_dataA;
 int			train_sizeA;
@@ -51,6 +52,8 @@ Model*		mod_kNN;
 Model*		mod_kNN_temp;
 Model*		mod_kNN_temp_temp;
 Model*		mod_kNN_best_seen;
+Biases*		precomp_biases;
+
 
 float		rmse_temp = 100;
 
@@ -58,22 +61,24 @@ float		rmse_temp = 100;
 
 float		bestProbeRMSE = 100;
 
-//void keepBestProbeRMSE(float newRMSE)
-//{
-//	if (newRMSE < bestProbeRMSE)
-//	{
-//		bestProbeRMSE = newRMSE;
-//		bestmod_kNN = &mod_kNN;
-//	}
-//	else
-//	{
-//		if (bestmod_kNN == &mod_kNN)
-//		{
-//			memcpy(&mod_kNNB, &mod_kNNT, sizeof(Model));
-//			bestmod_kNN = &mod_kNNB;
-//		}
-//	}
-//}
+
+
+void keepBestProbeRMSE(float newRMSE)
+{
+	if (newRMSE < bestProbeRMSE)
+	{
+		bestProbeRMSE = newRMSE;
+		mod_kNN_best_seen = mod_kNN;
+	}
+	else
+	{
+		if (mod_kNN_best_seen == mod_kNN)
+		{
+			memcpy(mod_kNN_temp_temp, mod_kNN_temp, sizeof(Model));
+			mod_kNN_best_seen = mod_kNN_temp_temp;
+		}
+	}
+}
 
 
 
@@ -193,23 +198,20 @@ bool getStartingPointsInMatArray(unsigned int * mat){
 	return 1;
 };
 
+int comp(const void * a, const void* b)
+{
+	DataEntry * A = (DataEntry*)a;
+	DataEntry * B = (DataEntry*)b;
+	if (A->user_ptr < B->user_ptr) return -1;
+	if (A->user_ptr > B->user_ptr) return 1;
+	if (A->movie_ptr < B->movie_ptr) return -1;
+	if (A->movie_ptr > B->movie_ptr) return 1;
+	return 0;
+}
+
 void main(){
 	
-
-	int tmpFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-	// Turn On (OR) - Keep freed memory blocks in the
-	// heap's linked list and mark them as freed
-	tmpFlag |= _CRTDBG_DELAY_FREE_MEM_DF;
-
-	// Turn on memory checking at each heap operation
-	tmpFlag |= _CRTDBG_CHECK_ALWAYS_DF;
-
-	// Set the new state for the flag
-	_CrtSetDbgFlag(tmpFlag);
-
-
-
-
+	
 	// Only run this if userstats.bin is not there yet.
 	// countStatsAndWriteToFile(mu_all, out_file);
 	
@@ -287,11 +289,17 @@ void main(){
 	// Initialize Model 
 	mod_kNN					= new Model;
 	mod_kNN_temp			= new Model;
-	// mod_kNN_temp_temp	= new Model;
-	// mod_kNN_best_seen	= new Model;
+	mod_kNN_temp_temp		= new Model;
+	
+	precomp_biases			= new Biases;
+
+	// mod_kNN_best_seen		= new Model;
 
 	init_mod_kNN(mod_kNN);
 	init_mod_kNN(mod_kNN_temp);
+
+	read_biases(precomp_biases, filepath_precomp_biases);
+
 	// memcpy(&mod_kNN_temp, &mod_kNN, sizeof(Model));
 	
 	printf("mod_kNN Initialization took %.3f\n", timerGetS(0));
@@ -305,6 +313,7 @@ void main(){
 	valid_sizeA = fillWithData(valid_dataA, mu_train, 2);
 	probe_sizeA = fillWithData(probe_dataA, mu_probe);
 	
+	qsort(train_dataA, train_sizeA, sizeof(DataEntry), comp);
 
 	// Test predicts
 
@@ -400,11 +409,12 @@ void main(){
 			probe_sizeA));
 
 		// Clever adjusting learning rate
-		// keepBestProbeRMSE(probermse);
+		keepBestProbeRMSE(probermse);
 		// if ((i+1) % TUNE_FREQ == 0) ChooseRate(l);
 
 		if ((i + 1) % 5 == 0) {
 			printf("---Probe RMSE:	    == %.4f ==\n", probermse);
+			printf("---\n");
 		}
 		
 			printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
@@ -444,15 +454,20 @@ void main(){
 
 	char mbstr[100];
 	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));
-
 	std::string str1 = std::to_string(validRMSE);
 	std::string str2 = std::to_string(probeRMSE);
 	strcat(mbstr, str1.c_str());
 	strcat(mbstr, str2.c_str());
 	strcat(mbstr, "all.soln");
-
 	save_kNN(mod_kNN, mbstr);
-	
+
+
+	char filepath_best_kNN[100];
+	std::strftime(filepath_best_kNN, sizeof(filepath_best_kNN), "%d-%m-%H%M", std::localtime(&t));
+	strcat(filepath_best_kNN, str1.c_str());
+	strcat(filepath_best_kNN, str2.c_str());
+	strcat(filepath_best_kNN, "allBESTSEEN.soln");
+	save_kNN(mod_kNN_best_seen, filepath_best_kNN);
 
 	std::cout << "FIN -- Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);

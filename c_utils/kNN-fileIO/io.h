@@ -16,6 +16,8 @@ int fillWithData(DataEntry* list, char* file, int type1, int type2);
 void save_kNN(Model*, char*);
 void read_kNN(Model*, char*);
 
+void read_biases(Biases *, char *);
+
 //void dumpPred(svd_entry * users, svd_entry * movies, DataEntry* testset, int size, char* filename);
 //
 ////void buildUserList(char * um);
