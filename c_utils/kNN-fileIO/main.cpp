@@ -17,14 +17,14 @@
 // Data
 
 // Just train on set 3
-//char*		mu_all	 = "../../../um/all.dta.allbut1";
-//char*		mu_train = "../../../um/all.dta.train23";
-//char*		mu_probe = "../../../um/all.dta.probe";
+char*		mu_all	 = "../../../um/all.dta.allbut1";
+char*		mu_train = "../../../um/all.dta.train23";
+char*		mu_probe = "../../../um/all.dta.probe";
 
 // Full data set
-char*		mu_all	 = "../../../um/all.dta.bin";
-char*		mu_train = "../../../um/all.dta.train";
-char*		mu_probe = "../../../um/all.dta.probe";
+//char*		mu_all	 = "../../../um/all.dta.bin";
+//char*		mu_train = "../../../um/all.dta.train";
+//char*		mu_probe = "../../../um/all.dta.probe";
 
 char*		out_file = "out_userstats.bin";
 
@@ -84,15 +84,18 @@ void keepBestProbeRMSE(float newRMSE)
 
 // Don't call computeRMSE again in smartIteration, store value and restore
 
-bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastRMSE)
+bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float & l, float &lastRMSE)
 {
 	float newRMSE;
 	float rmse_lastrun = lastRMSE;
 
 	timerStart(0);
+
+	timerStart(3);
+
 	memcpy(mod_kNN_temp, mod_kNN, sizeof(Model));
 	
-	trainParallelIteration(mod_kNN,
+	trainParallelIteration(mod_kNN, biases,
 		u,
 		mat_startingPointsUM_R,
 		mat_startingPointsUM_N,
@@ -102,13 +105,21 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastR
 		train_tempA,
 		train_sizeA);
 
-	printf("---The iteration took: %.3f\n", timerGetS(0));
+
+	printf("---The updates took: %.3f\n", timerGetS(0));
 	printf("---\n");
-	printf("---Train RMSE:      >> %.4f << \n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_dataA, train_sizeA));
+	
+	timerStart(1);
+	printf("---Train RMSE:      >> %.4f << \n", newRMSE = computeRmseParallel(mod_kNN, biases, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_dataA, train_sizeA));
 
 	printf("---\n");
-	printf("---Valid RMSE:      >> %.4f << \n", newRMSE = computeRMSE(mod_kNN, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, valid_dataA, valid_sizeA));
+	printf("---Valid RMSE:      >> %.4f << \n", newRMSE = computeRmseParallel(mod_kNN, biases, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, valid_dataA, valid_sizeA));
 	printf("---\n");
+	printf("---The RMSE comp took: %.3f\n", timerGetS(1));
+	printf("---\n");
+
+	timerStart(2);
+
 	if (newRMSE > lastRMSE || newRMSE != newRMSE)
 	{
 		printf("***newRMSE > lastRMSE ; rollback; decrease learning rate\n");
@@ -128,6 +139,12 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, float & l, float &lastR
 		lastRMSE = newRMSE;
 		return true;
 	}
+
+	printf("---Rolling back / continuing took: %.3f\n", timerGetS(2));
+	printf("---\n");
+
+	printf("---Iteration took: %.3f\n", timerGetS(3));
+	printf("---\n");
 }
 
 //
@@ -239,37 +256,7 @@ void main(){
 	getStartingPointsInMatArray(mat_startingPointsMatArray);
 
 	printf("Generating indices took %.10f\n", timerGetS(1));	
-		
-	///////////////////////////////////////////////////
-	//	Check counts
-	///////////////////////////////////////////////////
-/*
-	for (int i = 0; i < 100; i++){		
-		printf("sizeN[%u] = %u \n", i, (*u).nMovSeen_N[i]);				
-	};
-
-	for (int i = 0; i < 100; i++){
-		printf("N[%u] = %u \n", i, (*u).idMovSeen_N[i]);
-	};
 	
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
-
-	for (int i = 0; i < 100; i++){
-		printf("sizeR[%u] = %u \n", i, (*u).nMovRated_R[i]);
-	};
-
-	for (int i = 0; i < 100; i++){
-		printf("R[%u] = %u \n", i, (*u).idMovRated_R[i]);
-	};
-
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
-*/
-	///////////////////////////////////////////////////
-	//	End check counts
-	///////////////////////////////////////////////////
-
 	// Save parameters
 	saveParam(&t);
 
@@ -320,6 +307,7 @@ void main(){
 	printf("Temporary size is %d\n", train_sizeA);
 	timerStart(2);
 	printf("Valid RMSE:	         %.4f\n", rmse = computeRMSE(mod_kNN, 
+												precomp_biases,
 												u, 
 												mat_startingPointsUM_R, 
 												mat_startingPointsUM_N,
@@ -328,8 +316,13 @@ void main(){
 												valid_dataA, 
 												valid_sizeA));
 
-	/*printf("Valid RMSE PARALLEL: %.4f\n", rmse = computeRmseParallel(
+
+	printf("Computing valid RMSE takes %.4f\n", timerGetS(2));
+	timerStart(3);
+
+	printf("Valid RMSE PARALLEL: %.4f\n", rmse = computeRmseParallel(
 												mod_kNN,
+												precomp_biases,
 												u,
 												mat_startingPointsUM_R,
 												mat_startingPointsUM_N,
@@ -337,16 +330,16 @@ void main(){
 												train_dataA,
 												valid_dataA,
 												valid_sizeA));
-*/
 
-	printf("Computing valid RMSE takes %.4f\n", timerGetS(2));
+
+	printf("Computing valid RMSE PARALLEL takes %.4f\n", timerGetS(3));
 
 
 /*
 	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 	std::cin.ignore(1);*/
 
-	printf("Probe RMSE:      %.4f\n", computeRMSE(mod_kNN, 
+	printf("Probe RMSE:          %.4f\n", computeRMSE(mod_kNN, precomp_biases,
 												u, 
 												mat_startingPointsUM_R, 
 												mat_startingPointsUM_N,
@@ -354,6 +347,16 @@ void main(){
 												train_dataA, 
 												probe_dataA, 
 												probe_sizeA));	
+
+	printf("Probe RMSE parallel: %.4f\n", computeRmseParallel(mod_kNN, precomp_biases,
+		u,
+		mat_startingPointsUM_R,
+		mat_startingPointsUM_N,
+		mat_startingPointsMatArray,
+		train_dataA,
+		probe_dataA,
+		probe_sizeA));
+
 
 	////////////////
 	// Training loop
@@ -389,17 +392,16 @@ void main(){
 		printf("bm = ");
 		for (int ii = 0; ii < 5; ii++) printf("%.5f, ", mod_kNN->v_bm[ii]);
 		printf("\n\n");*/
-
 		/*if (i % 10 == 0){
 			std::cout << "Press ENTER to continue....." << std::endl << std::endl;
 			std::cin.ignore(1);
 			}*/
 
 		// Iteration
-		if (!smartIteration(mod_kNN, mod_kNN_temp, l, rmse))	break;
+		if (!smartIteration(mod_kNN, mod_kNN_temp, precomp_biases, l, rmse))	break;
 
 		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse,
-			probermse = computeRMSE(mod_kNN,
+			probermse = computeRmseParallel(mod_kNN, precomp_biases,
 			u,
 			mat_startingPointsUM_R,
 			mat_startingPointsUM_N,
@@ -431,7 +433,7 @@ void main(){
 	std::cin.ignore(1);
 
 	// Write mod_kNN to file
-	double validRMSE = computeRMSE(mod_kNN,
+	double validRMSE = computeRmseParallel(mod_kNN, precomp_biases,
 							u,
 							mat_startingPointsUM_R,
 							mat_startingPointsUM_N,
@@ -442,7 +444,7 @@ void main(){
 							valid_sizeA);
 
 
-	double probeRMSE = computeRMSE(mod_kNN,
+	double probeRMSE = computeRmseParallel(mod_kNN, precomp_biases,
 							u,
 							mat_startingPointsUM_R,
 							mat_startingPointsUM_N,
@@ -482,7 +484,6 @@ void main(){
 	delete[] probe_dataA;
 	delete[] valid_dataA;
 
-	_CrtDumpMemoryLeaks();
 
 
 }

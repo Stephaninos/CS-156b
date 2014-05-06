@@ -2,6 +2,7 @@
 
 void	init_mod_kNN(Model* mod_kNN);
 float	predict(Model * kNN,
+			Biases * biases,
 			UserStats *u,
 			unsigned int * sp_R,
 			unsigned int * sp_N,
@@ -10,6 +11,7 @@ float	predict(Model * kNN,
 			unsigned int movie_i,
 			DataEntry *trainset);
 float	computeRMSE(Model * kNN,
+			Biases * biases,
 			UserStats *u,
 			unsigned int * sp_R,
 			unsigned int * sp_N,
@@ -20,6 +22,7 @@ float	computeRMSE(Model * kNN,
 
 float computeRmseParallel(
 	Model* kNN,
+	Biases * biases,
 	UserStats* u,
 	unsigned int * sp_R,
 	unsigned int * sp_N,
@@ -30,6 +33,7 @@ float computeRmseParallel(
 	);
 
 void trainParallelIteration(Model* kNN,
+	Biases * biases,
 	UserStats* u,
 	unsigned int * sp_R,
 	unsigned int * sp_N,

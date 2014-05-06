@@ -13,6 +13,7 @@ struct Task
 	DataEntry*	data;
 	float *		temp;
 	Model *		mod_kNN;
+	Biases *	biases;
 	unsigned int* sp_R;
 	unsigned int* sp_N;
 	unsigned int* spMat;
@@ -25,6 +26,7 @@ struct TaskRmse
 	DataEntry*		trainset;
 	DataEntry*		testset;
 	Model*			mod_kNN;
+	Biases*			biases;
 	unsigned int*	sp_R;
 	unsigned int*	sp_N;
 	unsigned int*	spMat;
@@ -53,7 +55,8 @@ void init_mod_kNN(Model* mod_kNN)
 }
 
 
-inline float predict(	Model * kNN, 
+inline float predict(			Model * kNN, 
+								Biases * biases,
 								UserStats *u, 
 								unsigned int * sp_R, 
 								unsigned int * sp_N, 
@@ -72,22 +75,16 @@ inline float predict(	Model * kNN,
 
 	// Add biases
 	s += kNN->v_bu[user_u] + kNN->v_bm[movie_i]; // MEAN_RATING + 
-	
-	/*for (int id = _startindex_R; id < _startindex_R + u->nMovRated_R[user_u]; id++)
-	{
-		_mm_prefetch((char*)&kNN->m_corr_W[base + trainset[id].movie_ptr], _MM_HINT_T0);
-	}
-*/
+
 	// Add correlation with other movies with known ratings by user user_u
 	for (int id = _startindex_R; id < _startindex_R + u->nMovRated_R[user_u]; id++)
 	{	
 		DataEntry cur = trainset[id];
-		//_mm_prefetch((char*)&kNN->m_corr_W[base+trainset[id+1].movie_ptr],_MM_HINT_T0);
-		movie_j = cur.movie_ptr;							//u->idMovRated_R[i];
+		movie_j = cur.movie_ptr;									// u->idMovRated_R[i];
 		if (movie_j == movie_i){ continue; }						// Only movies not equal to b contribute to the sum
-		else{
-			corrfactor = (*kNN).m_corr_W[base + movie_j]; }
-		s += (cur.rating - (*kNN).v_bu[user_u] - (*kNN).v_bm[trainset[id].movie_ptr]) * corrfactor; // sum_j in R[a] (r_aj - B_aj ) * w_bj
+		else{ corrfactor = (*kNN).m_corr_W[base + movie_j]; }
+
+		s += u->invSqRootSizeR[user_u] * (cur.rating - (*biases).v_bu[user_u] - (*biases).v_bm[trainset[id].movie_ptr]) * corrfactor; // sum_j in R[a] (r_aj - B_aj ) * w_bj
 		
 		// (note: these are movies in category 1 or 3, and are filtered out by fillWithData into train_dataA)
 	};
@@ -97,13 +94,14 @@ inline float predict(	Model * kNN,
 	{
 		movie_j = u->idMovSeen_N[id];
 		if (movie_j == movie_i) continue;
-		s += (*kNN).m_baseline_C[base + movie_j];
+		s += u->invSqRootSizeN[user_u] * (*kNN).m_baseline_C[base + movie_j];
 	}
 
 	return s;
 }
 
 float computeRMSE(	Model * kNN, 
+					Biases * biases,
 					UserStats *u, 
 					unsigned int * sp_R, 
 					unsigned int * sp_N,
@@ -116,7 +114,7 @@ float computeRMSE(	Model * kNN,
 	double p;
 	for (int i = 0; i < testsize; i++)
 	{
-		p = predict(kNN, u, sp_R, sp_N, spMatArray, testset[i].user_ptr, testset[i].movie_ptr, trainset);
+		p = predict(kNN, biases, u, sp_R, sp_N, spMatArray, testset[i].user_ptr, testset[i].movie_ptr, trainset);
 		sum2 += (p - testset[i].rating)*(p - testset[i].rating);
 		
 		/*FILE * f = fopen("computeRMSE.csv", "at");
@@ -139,24 +137,22 @@ DWORD WINAPI rmseThread(LPVOID param)
 	// Do RMSE computation using thread input 'param', function returns a partial sum
 	TaskRmse t = *(TaskRmse*)param;
 
-	double p;
+	float p;
 	float *x;
 	x = t.sum2;
 
 	for (int i = t.first; i <= t.last; i++)
 	{
-		p = predict(t.mod_kNN, t.u, t.sp_R, t.sp_N, t.spMat, t.testset[i].user_ptr, t.testset[i].movie_ptr, t.trainset);
+		p = predict(t.mod_kNN, t.biases, t.u, t.sp_R, t.sp_N, t.spMat, t.testset[i].user_ptr, t.testset[i].movie_ptr, t.trainset);
 		*x += (p - t.testset[i].rating)*(p - t.testset[i].rating);
 	}
 
-	// Need to update struct member by reference
-	
-	printf("Thread computed: %.3f\n", x);
 	return 0;
 }
 
 float computeRmseParallel(
 	Model* kNN,
+	Biases * biases,
 	UserStats* u,
 	unsigned int * sp_R,
 	unsigned int * sp_N,
@@ -170,68 +166,55 @@ float computeRmseParallel(
 	TaskRmse	tsk[NUM_THREADS];
 	HANDLE		thread[NUM_THREADS];
 	
-	float result = 0;
-	float * ssquares = new float;
-	*ssquares = 0;
+	float * ssquares = new float[NUM_THREADS];
+	for (int i = 0; i < NUM_THREADS; i++) ssquares[i] = 0.;
 
 	// Chop up task in pieces and create threads
-	for (int i = 0; i < NUM_THREADS - 1; i++)
+	for (int i = 0; i < NUM_THREADS; i++)
 	{
 		// Ingredients to compute rating - predicted value for i running over data-points
 		tsk[i].u = u;
 		tsk[i].trainset = trainset;
 		tsk[i].testset = testset;
 		tsk[i].mod_kNN = kNN;
+		tsk[i].biases = biases;
 		tsk[i].sp_R = sp_R;
 		tsk[i].sp_N = sp_N;
-//		tsk[i].sum2 = ssquares;
-		tsk[i].spMat = spMatArray;
-		tsk[i].first = (testsize / NUM_THREADS)*i;
-		tsk[i].last = (testsize / NUM_THREADS)*(i + 1) - 1;
+		tsk[i].sum2 = &ssquares[i];
+		tsk[i].spMat = spMatArray; 
+		tsk[i].first = int(testsize / NUM_THREADS) * i; 
+
+		if (i == NUM_THREADS - 1){ tsk[i].last = testsize - 1; }
+		else { tsk[i].last = int(testsize / NUM_THREADS) * (i + 1) - 1; }
+
+		// printf("Batch %u: %u, %u \n", i, tsk[i].first, tsk[i].last);
+
 		thread[i] = CreateThread(NULL, 0, rmseThread, &tsk[i], 0, &tid[i]);
 	}
-
-	DataEntry*	tt;
-	float		p = 0;
-
-	// Take care of the remaining parts of the task
-	for (int i = (testsize / NUM_THREADS)*(NUM_THREADS - 1); i < testsize; i++)
-	{
-		// Compute sum of squares of remaining predictions
-		p = predict(kNN, u, sp_R, sp_N, spMatArray, testset[i].user_ptr, testset[i].movie_ptr, trainset);
-		*ssquares += (p - testset[i].rating)*(p - testset[i].rating);
-	}
-
 
 	// Wait until threads are done
 	WaitForMultipleObjects(NUM_THREADS, thread, true, INFINITE);
 
-
-	for (int i = 0; i < NUM_THREADS - 1; i++)
-	{
-		*ssquares += *(tsk[i].sum2);
-		printf("sum2 %u: %.3f \n", i, ssquares);
-	}
-
 	// Close threads 
-	for (int i = 0; i < NUM_THREADS - 1; i++)
+	for (int i = 0; i < NUM_THREADS; i++) CloseHandle(thread[i]);
+
+	float ss;
+	for (int i = 0; i < NUM_THREADS; i++)
 	{
-		CloseHandle(thread[i]);
+		ss += ssquares[i];
+		// printf("sum2 %u: %.6f \n", i, ss);
 	}
 
-	result = pow(*ssquares, 0.5);
-	printf("%.3f\n", result);
-	printf("%.3f\n", sqrt(*ssquares));
 	delete ssquares;
 
-	return result;
+	return pow(ss / testsize, 0.5);
 
 }
 
 DWORD WINAPI weightsThread(LPVOID param)
 {	
-	float biasu = 0.1;
-	float biasm = 0.1;
+	float prec_biasu = 0.1;
+	float prec_biasm = 0.1;
 	int userID_u;
 	int pos, posMat;
 	int movieID_i;
@@ -257,12 +240,12 @@ DWORD WINAPI weightsThread(LPVOID param)
 				movieID_j = p.u->idMovRated_R[pos];
 				
 				// Find the biases of user u and movie j
-				biasu = p.mod_kNN->v_bu[userID_u];
-				biasm = p.mod_kNN->v_bm[movieID_j];
+				prec_biasu = p.biases->v_bu[userID_u];
+				prec_biasm = p.biases->v_bm[movieID_j];
 
 				mm = &p.mod_kNN->m_corr_W[ base + movieID_j ];
 
-				*mm += p.l * (p.u->invSqRootSizeR[userID_u] * p.temp[dp] * (p.data[pos].rating - FIXED_BIAS_SUBTRACTION) // - biasu - biasm) 
+				*mm += p.l * (p.u->invSqRootSizeR[userID_u] * p.temp[dp] * (p.data[pos].rating - prec_biasu - prec_biasm) // - biasu - biasm) 
 					- REGULARIZATION_CONST_W * (*mm));
 				
 		}
@@ -301,6 +284,7 @@ DWORD WINAPI errorThread(LPVOID param)
 	{
 		tt = &t.data[i];
 		t.temp[i] = (tt->rating - predict(	t.mod_kNN,
+											t.biases,
 											t.u,
 											t.sp_R,
 											t.sp_N,
@@ -321,7 +305,8 @@ DWORD WINAPI errorThread(LPVOID param)
 
 
 
-void trainParallelIteration(	Model* kNN, 
+void trainParallelIteration(Model* kNN,
+	Biases * biases,
 								UserStats* u,
 								unsigned int * sp_R,
 								unsigned int * sp_N,
@@ -368,6 +353,7 @@ void trainParallelIteration(	Model* kNN,
 		tsk[i].l		= l;
 		tsk[i].u		= u;
 		tsk[i].mod_kNN	= kNN;
+		tsk[i].biases = biases;
 
 		thread[i] = CreateThread(NULL, 0, errorThread, &tsk[i], 0, &tid[i]);
 	}
