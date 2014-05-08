@@ -52,6 +52,7 @@ void init_mod_kNN(Model* mod_kNN)
 		mod_kNN->m_corr_W[i] = SEEDRANGE_CORR*(2 * float(rand()) / RAND_MAX - 1);
 		mod_kNN->m_baseline_C[i] = SEEDRANGE_BASELINE*(2 * float(rand()) / RAND_MAX - 1);
 	}
+	mod_kNN->learning_rate = LEARNING_RATE;
 }
 
 

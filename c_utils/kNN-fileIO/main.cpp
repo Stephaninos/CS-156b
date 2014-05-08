@@ -17,18 +17,22 @@
 // Data
 
 // Just train on set 3
-char*		mu_all	 = "../../../um/all.dta.allbut1";
-char*		mu_train = "../../../um/all.dta.train23";
-char*		mu_probe = "../../../um/all.dta.probe";
-
-// Full data set
-//char*		mu_all	 = "../../../um/all.dta.bin";
-//char*		mu_train = "../../../um/all.dta.train";
+//char*		mu_all	 = "../../../um/all.dta.allbut1";
+//char*		mu_train = "../../../um/all.dta.train23";
 //char*		mu_probe = "../../../um/all.dta.probe";
 
-char*		out_file = "out_userstats.bin";
+// Full data set
+char*		mu_all	 = "../../../um/all.dta.bin";
+char*		mu_train = "../../../um/all.dta.train";
+char*		mu_probe = "../../../um/all.dta.probe";
 
-char*		filepath_precomp_biases = "05-05-22130.9234690.995277allBESTSEEN.soln";
+// If resumed, loads in model parameter from below
+int			_RESUME = 1;
+char*		saved_state_path = "model.backup";
+
+// Pretrained biases from pure bias estimation
+char*		out_file				= "out_userstats.bin";
+char*		filepath_precomp_biases = "pretrained_biases_09235.soln";
 
 DataEntry*	train_dataA;
 int			train_sizeA;
@@ -54,14 +58,8 @@ Model*		mod_kNN_temp_temp;
 Model*		mod_kNN_best_seen;
 Biases*		precomp_biases;
 
-
 float		rmse_temp = 100;
-
-// Keep track of best param set seen
-
 float		bestProbeRMSE = 100;
-
-
 
 void keepBestProbeRMSE(float newRMSE)
 {
@@ -79,11 +77,6 @@ void keepBestProbeRMSE(float newRMSE)
 		}
 	}
 }
-
-
-
-// Don't call computeRMSE again in smartIteration, store value and restore
-
 bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float & l, float &lastRMSE)
 {
 	float newRMSE;
@@ -94,7 +87,7 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float 
 	timerStart(3);
 
 	memcpy(mod_kNN_temp, mod_kNN, sizeof(Model));
-	
+
 	trainParallelIteration(mod_kNN, biases,
 		u,
 		mat_startingPointsUM_R,
@@ -106,16 +99,17 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float 
 		train_sizeA);
 
 
-	printf("---The updates took: %.3f\n", timerGetS(0));
+	printf("---The updates took:   %.3f \n", timerGetS(0));
 	printf("---\n");
-	
+
 	timerStart(1);
 	printf("---Train RMSE:      >> %.4f << \n", newRMSE = computeRmseParallel(mod_kNN, biases, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, train_dataA, train_sizeA));
 
 	printf("---\n");
 	printf("---Valid RMSE:      >> %.4f << \n", newRMSE = computeRmseParallel(mod_kNN, biases, u, mat_startingPointsUM_R, mat_startingPointsUM_N, mat_startingPointsMatArray, train_dataA, valid_dataA, valid_sizeA));
 	printf("---\n");
-	printf("---The RMSE comp took: %.3f\n", timerGetS(1));
+	printf("---RMSE comp took      %.3f \n", timerGetS(1));
+	printf("---Iteration took:     %.3f \n", timerGetS(3));
 	printf("---\n");
 
 	timerStart(2);
@@ -126,25 +120,30 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float 
 		memcpy(mod_kNN, mod_kNN_temp, sizeof(Model));
 		l *= LEARNING_DEC;
 		lastRMSE = rmse_lastrun;
+
+		printf("---Rolling back / continuing took: %.3f\n", timerGetS(2));
+		printf("---\n");
+
 		return true;
 	}
 	else
 	{
+
 		l *= LEARNING_INC;
+
+		mod_kNN->learning_rate = l;
+		// mod_kNN_best_seen->learning_rate = l;
+
 		if (lastRMSE - newRMSE < THRESHOLD)
 		{
 			lastRMSE = newRMSE;
 			return false;
 		}
 		lastRMSE = newRMSE;
+
 		return true;
 	}
 
-	printf("---Rolling back / continuing took: %.3f\n", timerGetS(2));
-	printf("---\n");
-
-	printf("---Iteration took: %.3f\n", timerGetS(3));
-	printf("---\n");
 }
 
 //
@@ -175,7 +174,6 @@ bool smartIteration(Model *mod_kNN, Model *mod_kNN_temp, Biases * biases, float 
 //}
 //
 
-// Note: just store these numbers in a file to make this faster?
 bool getStartingPointsInUM_R(unsigned int * mat, UserStats *u){
 	int sum = 0;
 	for (int k = 0; k < USER_NUM; k++){
@@ -184,7 +182,6 @@ bool getStartingPointsInUM_R(unsigned int * mat, UserStats *u){
 	};
 	return 1;
 };
-
 bool getStartingPointsInUM_N(unsigned int * mat, UserStats *u){
 	int sum = 0;
 	for (int k = 0; k < USER_NUM; k++){
@@ -193,7 +190,6 @@ bool getStartingPointsInUM_N(unsigned int * mat, UserStats *u){
 	};
 	return 1;
 };
-
 // To look up where the ratings for user i start in um/all.dta.train USER-MOVIE SORTED!!!
 bool getStartingPointsInMatArray(unsigned int * mat){
 	int sum = 0;	
@@ -214,7 +210,6 @@ bool getStartingPointsInMatArray(unsigned int * mat){
 		
 	return 1;
 };
-
 int comp(const void * a, const void* b)
 {
 	DataEntry * A = (DataEntry*)a;
@@ -239,6 +234,10 @@ void main(){
 	char starttime[sizeof(t)];
 	std::strftime(starttime, sizeof(starttime), "%d-%m-%H%M", std::localtime(&t));
 	
+	char backup_starttime[sizeof(t)];
+	std::strftime(backup_starttime, sizeof(backup_starttime), "%d-%m-%H%M", std::localtime(&t));
+	strcat(backup_starttime, "model.backup");
+
 	timerStart(0);
 
 	// Fill UserStats from .bin file
@@ -261,13 +260,12 @@ void main(){
 	saveParam(&t);
 
 	// Start log file for RMSEs
-	char name_logfile[1024];
-	strcpy(name_logfile, starttime);	
+	char name_logfile[sizeof(t)];
+	strcpy(name_logfile, starttime);
 	strcat(name_logfile, ".log.csv");
 	
 	FILE * f		= fopen(name_logfile, "wt");
 	int Niter		= ITERATION_NUM;
-	float l			= LEARNING_RATE;
 	float rmse		= 100;
 	float probermse = 100;
 		
@@ -279,16 +277,25 @@ void main(){
 	mod_kNN_temp_temp		= new Model;
 	
 	precomp_biases			= new Biases;
+	read_biases(precomp_biases, filepath_precomp_biases);
+	printf("Read in learning rate: %.4f", precomp_biases->learning_rate);
 
 	// mod_kNN_best_seen		= new Model;
 
-	init_mod_kNN(mod_kNN);
-	init_mod_kNN(mod_kNN_temp);
-
-	read_biases(precomp_biases, filepath_precomp_biases);
-
-	// memcpy(&mod_kNN_temp, &mod_kNN, sizeof(Model));
-	
+	// Resume from saved state
+	if (_RESUME == 1){
+		read_kNN(mod_kNN, saved_state_path);
+		// read_kNN(mod_kNN_temp, filepath_savedstate);
+	}
+	else{
+		init_mod_kNN(mod_kNN);
+		for (int i = 0; i < USER_NUM; i++) mod_kNN->v_bu[i] = precomp_biases->v_bu[i];
+		for (int i = 0; i < MOVIE_NUM; i++) mod_kNN->v_bm[i] = precomp_biases->v_bm[i];
+		// Slow and dirty way to copy
+	}
+	 
+	float l = mod_kNN->learning_rate;
+			
 	printf("mod_kNN Initialization took %.3f\n", timerGetS(0));
 	
 	train_dataA = new DataEntry[NUM_TRAIN_RATINGS];
@@ -305,19 +312,6 @@ void main(){
 	// Test predicts
 
 	printf("Temporary size is %d\n", train_sizeA);
-	timerStart(2);
-	printf("Valid RMSE:	         %.4f\n", rmse = computeRMSE(mod_kNN, 
-												precomp_biases,
-												u, 
-												mat_startingPointsUM_R, 
-												mat_startingPointsUM_N,
-												mat_startingPointsMatArray, 
-												train_dataA, 
-												valid_dataA, 
-												valid_sizeA));
-
-
-	printf("Computing valid RMSE takes %.4f\n", timerGetS(2));
 	timerStart(3);
 
 	printf("Valid RMSE PARALLEL: %.4f\n", rmse = computeRmseParallel(
@@ -334,20 +328,6 @@ void main(){
 
 	printf("Computing valid RMSE PARALLEL takes %.4f\n", timerGetS(3));
 
-
-/*
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);*/
-
-	printf("Probe RMSE:          %.4f\n", computeRMSE(mod_kNN, precomp_biases,
-												u, 
-												mat_startingPointsUM_R, 
-												mat_startingPointsUM_N,
-												mat_startingPointsMatArray, 
-												train_dataA, 
-												probe_dataA, 
-												probe_sizeA));	
-
 	printf("Probe RMSE parallel: %.4f\n", computeRmseParallel(mod_kNN, precomp_biases,
 		u,
 		mat_startingPointsUM_R,
@@ -356,7 +336,6 @@ void main(){
 		train_dataA,
 		probe_dataA,
 		probe_sizeA));
-
 
 	////////////////
 	// Training loop
@@ -398,17 +377,18 @@ void main(){
 			}*/
 
 		// Iteration
-		if (!smartIteration(mod_kNN, mod_kNN_temp, precomp_biases, l, rmse))	break;
+		if (!smartIteration(mod_kNN, mod_kNN_temp, precomp_biases, l, rmse)) break;
 
-		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse,
-			probermse = computeRmseParallel(mod_kNN, precomp_biases,
+		probermse = computeRmseParallel(mod_kNN, precomp_biases,
 			u,
 			mat_startingPointsUM_R,
 			mat_startingPointsUM_N,
 			mat_startingPointsMatArray,
 			train_dataA,
 			probe_dataA,
-			probe_sizeA));
+			probe_sizeA);
+
+		fprintf(f, "%d, %.7f, %.7f\n", i + 1, rmse, probermse);
 
 		// Clever adjusting learning rate
 		keepBestProbeRMSE(probermse);
@@ -419,7 +399,12 @@ void main(){
 			printf("---\n");
 		}
 		
-			printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
+		// Backup every 25 iterations
+		if ((i + 1) % 4 == 0){			
+			save_kNN(mod_kNN_best_seen, backup_starttime);
+		}
+		
+		printf("---Estimate time left: %.3f m", (Niter - i - 1)*(timerGetS(2) / (i + 1)) / 60);
 	}
 
 	// Loop converged or we hit max iters
@@ -453,6 +438,9 @@ void main(){
 							// train_sizeA,
 							probe_dataA,
 							probe_sizeA);
+
+	mod_kNN->learning_rate			 = l;
+	mod_kNN_best_seen->learning_rate = l;
 
 	char mbstr[100];
 	std::strftime(mbstr, sizeof(mbstr), "%d-%m-%H%M", std::localtime(&t));

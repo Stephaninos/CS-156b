@@ -59,8 +59,8 @@ int countStatsAndWriteToFile(
 
 	fclose(f);
 	
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
+	/*std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);*/
 	
 	// Blabla
 	
@@ -69,8 +69,8 @@ int countStatsAndWriteToFile(
 	// printf("Last entry: %u", (*u).idMovSeen_N[TOTAL_NUM_RATINGS-1]);
 	// for (int j = 0; j < 100; j++) printf("N: User %u saw %u movies \n", j, (*u).nMovSeen_N[j]);
 	
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
+	/*std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);*/
 
 	/*for (int j = 0; j < 200; j++) printf("R: User .  movie: %u \n", (*u).idMovRated_R[j]);
 	for (int j = 0; j < 100; j++) printf("R: User %u saw %u movies \n", j, (*u).nMovRated_R[j]);
@@ -88,8 +88,8 @@ int countStatsAndWriteToFile(
 	fwrite(u, sizeof(UserStats), 1, m);
 	fclose(m);
 	
-	std::cout << "Press ENTER to continue....." << std::endl << std::endl;
-	std::cin.ignore(1);
+	/*std::cout << "Press ENTER to continue....." << std::endl << std::endl;
+	std::cin.ignore(1);*/
 	
 	return 1;
 }
